@@ -1,197 +1,646 @@
-# SafarSync AI — Qoder Build Playbook
-### Your step-by-step, beginner-safe guide to building and winning with SafarSync AI at the Alibaba Cloud AI Hackathon 2026 (Bano Qabil × Alkhidmat Foundation)
+# SafarSync AI — Qoder + Alibaba Cloud Free-Tier Winning Build Playbook
 
-**Prepared for:** Afraz Hassan — 1st-Semester BS Software Engineering, FAST-NUCES Islamabad · 1 year freelance DevOps experience · Basic LLM knowledge (no RAG/fine-tuning yet) · Python, C++, HTML/CSS · MO-100, AZ-900 certified
-**Build tool:** Qoder IDE (Agent Mode + Quest Mode), connected to Alibaba Cloud Model Studio (Qwen models)
-**Document version:** 1.0 — written 21 August 2026
+### A beginner-safe, zero-cost implementation plan for the Alibaba Cloud AI Hackathon 2026
+**Bano Qabil × Alkhidmat Foundation | Built with Qoder + Alibaba Cloud Model Studio + Qwen**
 
----
-
-## 0. How to Use This Document
-
-This is not a copy of your original SafarSync documentation — it replaces the "write every line of Python yourself in VS Code" plan with a plan built around **Qoder**, the actual tool the hackathon is giving you tomorrow. The idea, the problem, and the features stay the same (they were already good). What changes is *how* you build it.
-
-Three rules for this whole document:
-
-1. **You never write a file from a blank page.** For every file SafarSync needs, you will hand Qoder a precise, pre-written specification ("Quest Prompt"). Qoder writes the code. You read it, test it, and understand it — that's what makes you able to defend it in front of judges.
-2. **You verify, you don't guess.** Every step below tells you exactly how to confirm it worked before moving to the next one. A hackathon project that "mostly works" is a project that fails live in front of judges.
-3. **Scope is locked.** Section 5 below defines a Core Build (must work, 100%) and a Stretch Build (only if time remains). Do not touch Stretch features until every Core feature is tested and stable. This single rule is what separates hackathon teams that finish from teams that panic at hour 20 with five half-built features.
+**Prepared for:** Afraz Hassan  
+**Build constraint:** **$0 paid spend**  
+**Available Qoder allowance:** **2,180 credits**  
+**Primary app:** Streamlit  
+**Primary database:** SQLite  
+**AI platform:** Alibaba Cloud Model Studio  
+**Document status:** Reworked for the current free-tier-first strategy — **29 August 2026**
 
 ---
 
-## 1. Hackathon Snapshot — Verified as of 21 August 2026
+# 0. Executive Decision: What We Are Building
 
-| Item | Detail |
+SafarSync AI is not just a receipt scanner.
+
+It is a **Pakistan-focused Vehicle Expense Intelligence & Maintenance Co-Pilot** that turns messy paper records into a useful digital vehicle history.
+
+The winning demo should feel like this:
+
+> **Photo → AI understands receipt → user verifies → record saved → dashboard updates → maintenance insight appears → user can ask SafarSync a question by typing or voice.**
+
+The product must look simple to a judge while the implementation underneath is disciplined.
+
+## The winning product promise
+
+**“SafarSync turns every fuel and maintenance receipt into a living digital history of your vehicle.”**
+
+## The three AI moments
+
+1. **See:** Qwen vision reads a fuel/mechanic/insurance receipt.
+2. **Think:** Qwen analyzes the vehicle’s accumulated data and explains useful actions.
+3. **Talk:** User can ask questions such as:
+   - “How much did I spend on fuel this month?”
+   - “When is my next oil change due?”
+   - “Why has my fuel efficiency dropped?”
+   - “What was my most expensive maintenance visit?”
+
+The calculations remain deterministic in Python. AI explains the results rather than inventing the underlying numbers.
+
+---
+
+# 1. The Most Important Constraint: Everything Must Stay Free
+
+This project is designed around a **hard $0 budget**.
+
+That means:
+
+- No paid Alibaba Cloud subscription is required.
+- No paid Qoder subscription is required beyond the **2,180 credits already available to you**.
+- No Google Maps API.
+- No paid database.
+- No paid OCR service.
+- No paid hosting is required for the demo.
+- No fine-tuning.
+- No vector database.
+- No RAG.
+- No paid monitoring platform.
+- No paid third-party AI API.
+
+## 1.0 Why you may only see these three models
+
+You are **not necessarily doing anything wrong**.
+
+Alibaba's current documentation says the new-user free quota is **model-specific** and that a model is eligible only when the console shows a remaining free-quota allocation for that account. The Singapore region with International deployment scope is the relevant free-quota environment. citeturn799488search1turn799488search2
+
+For this build, treat your actual console as the source of truth:
+
+```text
+qwen-plus-character
+qwen-flash-character
+qwen-mt-image-2.0
+```
+
+Before changing anything else, verify:
+
+```text
+Region: Singapore
+Deployment scope: International
+Workspace: the same workspace where the free quota is displayed
+```
+
+Do **not** design the application around a model that is absent from your own free-quota allocation.
+
+### Important capability distinction
+
+The two Character models are **text-input/text-output role-playing models**. Alibaba documents `qwen-plus-character` and `qwen-flash-character` as text-only models. They are useful for conversational vehicle assistance, normalization, and explanations, but they are **not receipt-vision/OCR models**. citeturn446980search0turn446980search1
+
+So the $0 receipt architecture becomes:
+
+```text
+Receipt image
+   ↓
+Free/local OCR OR confirmed image-translation step
+   ↓
+Extracted text
+   ↓
+Qwen Plus Character
+   ↓
+Normalization + classification + ambiguity handling
+   ↓
+Python validation
+   ↓
+Human review
+   ↓
+SQLite
+```
+
+This is technically stronger than pretending a text-only model can see a receipt.
+
+## 1.1 Alibaba Cloud free quota strategy
+
+As of August 2026, Alibaba Cloud Model Studio provides **new-user free quota in the Singapore region for International deployment scope** on eligible models. The official documentation says eligible models typically receive **1 million tokens per model**, with a 90-day validity period for the new-user quota. The quota is model-specific and cannot be transferred between models. citeturn643886search1turn138320search0
+
+### Absolutely critical safety setting
+
+Turn on **Free Quota Only** for the models you use.
+
+Alibaba documents that this mode stops model requests when free quota is exhausted instead of continuing into paid usage. This is the single most important setting for your $0 requirement. citeturn643886search1turn643886search0
+
+### Your actual free-quota model set
+
+| Model | SafarSync role |
 |---|---|
-| Full name | Alibaba Cloud AI Hackathon 2026 |
-| Organizers | Bano Qabil (Alkhidmat Foundation Pakistan's tech-education arm) + Alibaba Cloud, with Cognix Solutions / Cogniser Pakistan as technical partners |
-| Scale | Described as Pakistan's first and largest hackathon of this kind, launched at a ceremony in Lahore in July 2026 |
-| Registration | Closed 7 August 2026 — you're already in |
-| Your onboarding city | Islamabad/Rawalpindi (one of only four physical onboarding cities — Lahore, Karachi, Islamabad, Rawalpindi) |
-| Webinar 1 — "AI Hackathon Training: Qoder Quest" | Wed 19 Aug, 13:30–15:15 PKT. Covered: hackathon introduction, participant guide, and a first technical walkthrough of Qoder, how LLMs work, Qoder Quest, and prompting |
-| Webinar 2 — "AI Hackathon Training: Qoder IDE" | Thu 20 Aug, 13:30–15:00 PKT. Covered: Qoder Skills, MCP, plug-ins, cost optimisation, and applied demos |
-| Today (21 Aug) | Organizers issue your Qoder ID / access |
-| Tomorrow (22 Aug) | Building officially begins |
-| Community | Discord: `discord.gg/xfyUK45Ka` — this is where schedule changes, deadline confirmations, mentor Q&A, and troubleshooting happen. Check it daily. |
-| Prizes | Cash + Alibaba Cloud credits + mentorship + investor exposure |
+| `qwen-plus-character` | Main AI assistant, maintenance explanations, natural-language insights |
+| `qwen-flash-character` | Fast/lightweight fallback for simple assistant responses |
+| `qwen-mt-image-2.0` | Image-translation/visual preprocessing **only after a test confirms it is useful for your receipt workflow** |
 
-> **⚠️ One thing you must confirm yourself, today, on Discord:** the exact **submission deadline and demo-day date/time**. This document structures your build in *phases*, not fixed calendar days, precisely because that date isn't published in your source material. The moment you know it, write it at the top of this file and count backward to fix your phase timeline.
+The console's displayed free-quota allocation is the authoritative source for your account. citeturn799488search1turn799488search2
 
-### 1.1 Why Alibaba Cloud usage is not optional
+### Do not hard-code an obsolete endpoint
 
-This is a **branded** hackathon — Alibaba Cloud is a co-organizer, not a sponsor logo. Judges are evaluating whether you meaningfully used their stack. For SafarSync that means:
+Alibaba still supports the older Singapore DashScope endpoint, but current documentation recommends workspace-specific endpoints for production:
 
-- Your core AI feature (receipt OCR) must run on **Qwen-VL** (Alibaba's vision-language model), not OpenAI/Gemini/Claude.
-- You build the whole thing *inside Qoder*, using Quest Mode for real work — not just as a glorified autocomplete.
-- Your pitch explicitly names Qwen and Qoder and explains *why* they mattered (Section 11 gives you the exact language).
+`https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1`
 
-### 1.2 Likely judging weight (inferred from hackathon goals — not officially published; confirm on Discord if a rubric is released)
+The older Singapore endpoint remains available:
 
-| Criterion | Est. Weight | What it means for you |
-|---|---|---|
-| Innovation & Originality | 25% | Receipt OCR for handwritten Urdu/English bills is a genuinely local, underserved problem |
-| Technical Implementation | 30% | Does it *actually run*, live, using Qwen properly — this is your biggest scoring lever and the whole point of the Core Build in Section 5 |
-| Real-World Impact | 20% | 28M+ registered vehicles in Pakistan, zero digital record-keeping — say this number in your pitch |
-| Business Viability | 15% | Freemium + B2B (insurers, resale platforms) — Section 11 covers this |
-| Presentation & Demo | 10% | A **live**, rehearsed, 5-minute demo beats a longer unrehearsed one |
+`https://dashscope-intl.aliyuncs.com/compatible-mode/v1`
+
+The project should therefore keep `DASHSCOPE_BASE_URL` configurable in `.env` rather than hard-coding one URL into business logic. citeturn643886search3turn643886search6
 
 ---
 
-## 2. Your Starting Position (and why it's a fine place to start from)
+# 2. What Changes from the Original Playbook
 
-Be honest with yourself about this table — it's the actual reason this document is built around Qoder rather than around you typing raw Python for 30 hours straight.
+The original idea is strong, but several implementation choices should be upgraded.
 
-| You have | You don't have yet | How this plan compensates |
-|---|---|---|
-| Python, C++, HTML/CSS fundamentals | Streamlit, SQLite, or REST API experience specifically | Qoder writes these; you read and learn them as you review its output — you're not blocked by not already knowing the library |
-| 1 year DevOps freelancing | Deep backend architecture experience | You already understand `.env` files, servers, deployment, and version control better than most first-semester teammates will — lean on this for Section 10 |
-| Basic LLM knowledge | RAG, fine-tuning | **Good news: SafarSync needs neither.** It calls Qwen-VL and Qwen-Max through a plain API, the same way you'd call any REST API. No RAG, no fine-tuning, no vector database anywhere in this build. |
-| MO-100 (Microsoft Office Specialist) | — | Directly useful for your pitch deck and PDF export feature |
-| AZ-900 (Azure Fundamentals) | Alibaba Cloud specifics | You already know cloud concepts (compute, storage, regions); Alibaba Cloud/ECS is the same concepts with different menu names — Section 10 maps them |
-| 1 week into semester 1 | Large-scale team software experience | Qoder's Quest Mode is *designed* for exactly this gap — you specify precisely, it executes precisely, you don't need five years of engineering instinct to get production-shaped code |
+## Original → Winning version
 
-**The one skill this plan actually demands of you:** writing a clear, specific instruction (a "spec") and then reading code carefully enough to test it. That's it. Section 8 gives you every spec pre-written — you'll paste, run, verify, and only then move on.
-
----
-
-## 3. Understanding Qoder (read this before you open it tomorrow)
-
-Qoder is Alibaba's agentic coding IDE. It is **not** Cursor-style autocomplete — it has two distinct modes, and knowing which one to use for which job is the single most important skill in this whole hackathon.
-
-| Mode | What it does | When you use it in this build |
-|---|---|---|
-| **Agent Mode** | Conversational, chat-driven pair programming. You ask, it edits, you review each change before it's applied (checkpoints). Best for small, interactive changes and debugging. | Fixing bugs, tweaking UI, asking "why did this break," small edits |
-| **Quest Mode** | You hand it a full specification. It plans, writes multi-file code, tests it, and delivers a finished feature — largely unattended. Best for building a whole module in one shot. | Building each of the 6 core files in Section 8 |
-
-Other things you need to know before tomorrow:
-
-- **Model:** Qoder is built around Qwen3-Coder for code generation, with the ability to route to other models for chat. For this hackathon, keep Qoder itself pointed at its default coding model — you'll call Qwen-VL and Qwen-Max *separately*, from inside your own Python code, using your own DashScope API key (Section 7). Don't confuse "the model Qoder uses to write code" with "the model your app calls at runtime" — they're two different things.
-- **Skills / MCP / plug-ins:** covered in Webinar 2. Skills are reusable instruction packs Qoder can load (similar in spirit to the skill files professional coding agents use); MCP lets Qoder connect to external tools/services. You won't need custom MCP servers for the Core Build — Python, SQLite, and the Qwen API are all reachable with plain code.
-- **Credits:** Qoder is credit-metered (chat/agent requests and Quest tasks consume credits at different rates; Quest tasks cost more per run because they do more work). This is why Section 8's prompts are written to be **complete and specific on the first try** — a vague prompt that needs three follow-up corrections burns three times the credits of one clear prompt.
-- **Checkpoints:** Agent Mode changes are applied incrementally and can be reviewed/rolled back. Quest Mode delivers a finished result you review afterward. If a Quest run goes wrong, don't panic-prompt fixes on top of fixes — roll back and re-run the corrected spec.
-
-> **✅ Today's action:** when you receive your Qoder ID/access from the organizers, log in, and immediately go to **Settings → Models** and confirm you can see and select a Qwen coding model. If it fails, ask on Discord immediately — don't wait until building day.
+| Original plan | Winning version |
+|---|---|
+| `qwen-plus-character` only | `qwen-plus-character` for OCR + `qwen-plus-character` for reasoning |
+| Qwen Plus Character advisor | Prefer `qwen-plus-character` so the build uses a current model and separates vision from reasoning |
+| Manual input mainly through receipt flow | Dedicated fast manual expense-entry workflow |
+| Dashboard + OCR | Dashboard + OCR + validation + anomaly signals |
+| Google Maps as stretch | Removed from the $0 plan |
+| Alibaba ECS deployment | Optional; **Streamlit Community Cloud is the $0 deployment target** |
+| 6 large files | Small, testable modules with one shared AI client |
+| AI can be called repeatedly | Add caching, demo mode, and “call AI only when needed” rules |
+| No explicit demo dataset | Seeded demo mode with polished realistic records |
+| No voice plan | Optional free browser voice input for the showcase |
+| Basic error handling | Demo-safe error handling + offline/demo fallback |
+| “Build it and hope” | Build → test → commit → checkpoint after every module |
 
 ---
 
-## 4. Today's Pre-Build Checklist (do this on 21 August, before you sleep)
+# 3. Product Vision
 
-Doing this tonight means you start building at full speed tomorrow instead of losing your first hour to setup.
+## 3.1 Problem
 
-- [ ] Received and activated your Qoder ID from the organizers; logged into Qoder successfully
-- [ ] Joined the Discord (`discord.gg/xfyUK45Ka`) and confirmed the exact deadline/demo-day time — write it here: **______________**
-- [ ] Installed **Python 3.11+** (check "Add to PATH" during install on Windows) — verify with `python --version` in a terminal
-- [ ] Created an **Alibaba Cloud account** at alibabacloud.com using your student email
-- [ ] Generated a **Qwen API key** from DashScope (dashscope.aliyuncs.com/api-doc) — Model Studio's console → API Keys. Save it somewhere private, not in any file you'll commit to Git.
-- [ ] Created a private **GitHub repository** called `safarsync-ai` (your DevOps background means you already know why: version control from commit #1, not "I'll add Git later")
-- [ ] Confirmed your phone camera can take clear photos in low light (you'll need 3 real receipt photos for testing and demo)
-- [ ] Skimmed Section 5 and 8 below so you know what you're building before you sit down
+Vehicle owners in Pakistan often manage expenses through:
+
+- handwritten mechanic bills,
+- paper fuel receipts,
+- informal notes,
+- WhatsApp conversations,
+- memory,
+- scattered photos.
+
+This makes it difficult to answer basic questions:
+
+- How much did I spend on fuel?
+- Which month was most expensive?
+- What is my average fuel efficiency?
+- When was the last oil change?
+- Is a maintenance item overdue?
+- How much have I spent on this vehicle overall?
+- Can I show a buyer a clean maintenance history?
+
+SafarSync turns these disconnected records into a structured vehicle history.
+
+## 3.2 Target user
+
+### Primary
+
+A Pakistani private vehicle owner who wants simple expense tracking without becoming an accountant.
+
+### Secondary
+
+- Families managing multiple cars
+- Drivers
+- Small fleets
+- Used-car sellers
+- Buyers who want documented maintenance history
+- Insurance companies
+- Vehicle service businesses
+
+## 3.3 The “why now”
+
+The product becomes significantly more compelling when the user does not have to type every receipt manually.
+
+The product’s UX should therefore make this the default mental model:
+
+**“Take a photo. SafarSync does the boring data entry. You stay in control.”**
 
 ---
 
-## 5. Project Overview: SafarSync AI
+# 4. Core Features — The Version Judges Should See
 
-**Tagline:** The AI Co-Pilot for Vehicle Expense Intelligence & Predictive Maintenance.
+## Feature 1 — Smart Receipt Scanner
 
-**Problem:** Pakistan has 28M+ registered vehicles, and vehicle expense records are almost entirely informal — handwritten mechanic bills, no digital history, no way to verify fair pricing, fuel theft going undetected, and no maintenance-history record to protect resale value. SafarSync turns a phone photo of any receipt into structured, searchable, analyzed data.
+User uploads or photographs:
 
-### 5.1 Core Build (must be 100% working and demo-able)
+- fuel receipt,
+- mechanic bill,
+- maintenance invoice,
+- insurance document.
 
-| # | Feature | What it does | Powered by |
-|---|---|---|---|
-| 1 | **Smart Receipt OCR Scanner** | User photographs a fuel/mechanic/insurance receipt (handwritten or printed, Urdu or English). Qwen-VL reads it and extracts date, amount (PKR), liters, odometer, services, and vendor name into structured JSON. User reviews before saving (human-in-the-loop). | Qwen-VL-Plus |
-| 2 | **Fuel Intelligence Dashboard** | Charts of spending over time, fuel efficiency (km/L from odometer deltas), cost breakdown by category. | Pandas + Plotly |
-| 3 | **Predictive Maintenance Advisor** | Rule-based schedule (oil change every ~5,000 km, etc.) combined with a Qwen-Max call that turns the numbers into a plain-language recommendation. | Rules + Qwen-Max |
-| 4 | **Digital Vehicle Health Logbook** | Every record ever scanned, searchable/filterable, exportable to PDF (useful for resale — an actual selling point in your pitch). | SQLite + fpdf2 |
-| 5 | **Streamlit Web App** | Ties all of the above into one live, demoable web interface. | Streamlit |
+Qwen reads the image and extracts:
 
-This alone, done well and bug-free, is a complete, judge-ready, Qwen-powered product. **Do not skip straight to stretch features before this is rock solid.**
-
-### 5.2 Stretch Build (only after Core is fully tested — build in this order if time remains)
-
-| # | Feature | Note |
-|---|---|---|
-| 6 | GPS Distance & Trip Tracker | Google Maps Distance Matrix API (needs its own key, Section 7) or the free Haversine-formula method for live GPS — upgrades km/L accuracy. Genuinely impressive but it's a second external API and second failure point; only add it once Core is stable. |
-| 7 | Anomaly & Fraud Alert Engine | Flags a fuel-up or bill that's statistically out of line with the vehicle's history. Cheap to add once analytics.py exists — mostly a threshold check on data you already have. |
-| 8 | Qwen-powered AI Chatbot | A chat box answering questions like "how much did I spend on fuel last month?" using the user's own logged data. Strong demo moment, but skip it if you're tired — a live crash here is worse than not having it. |
-| 9 | CNG/multi-fuel tracker, mechanic price-checker, resale predictor, WhatsApp bot | Nice narrative additions, genuinely lowest priority — only mention as "roadmap" in your pitch if you don't build them (Section 11 gives you exact wording for this). |
-
-> **Original idea validation:** the core concept — multimodal AI + receipt OCR + predictive maintenance — is a strong, well-scoped hackathon idea. This document doesn't change *what* you're building, only *how efficiently* you get there with the tool you actually have access to tomorrow.
-
-### 5.3 Architecture (kept intentionally simple — 4 layers)
-
-```
-┌─────────────────────────────┐
-│  Layer 1 — Streamlit UI      │  app.py: pages for Scan Receipt,
-│                               │  Dashboard, Logbook, Maintenance
-└──────────────┬────────────────┘
-               │
-┌──────────────▼────────────────┐
-│  Layer 2 — Python Logic        │  analytics.py, maintenance.py
-│  (calculations, orchestration) │
-└──────────────┬────────────────┘
-               │
-┌──────────────▼────────────────┐
-│  Layer 3 — AI Layer             │  receipt_scanner.py → Qwen-VL
-│  (Alibaba Cloud DashScope API)  │  maintenance.py → Qwen-Max
-└──────────────┬────────────────┘
-               │
-┌──────────────▼────────────────┐
-│  Layer 4 — Data                 │  database.py → SQLite
-│                                  │  (safarsync.db, auto-created)
-└─────────────────────────────────┘
+```json
+{
+  "record_type": "fuel",
+  "date": "2026-08-24",
+  "amount_pkr": 4500,
+  "liters": 32.5,
+  "odometer_km": 84520,
+  "description": "Petrol",
+  "vendor_name": "PSO",
+  "confidence": "high"
+}
 ```
 
-### 5.4 File structure (what you'll ask Qoder to create, in order)
+The user then sees an **editable review form**.
 
+This is essential.
+
+### Design rule
+
+Never silently save AI output.
+
+Use:
+
+**AI extraction → human review → explicit save**
+
+This protects data quality and gives you a strong answer to the judge question:
+
+> “What happens if the AI is wrong?”
+
+---
+
+# Feature 2 — Manual Expense Entry
+
+The product must work even when the user does not have a receipt.
+
+Provide a fast form:
+
+### Add Fuel
+
+- Date
+- Amount
+- Liters
+- Odometer
+- Station
+- Notes
+
+### Add Maintenance
+
+- Date
+- Amount
+- Odometer
+- Service type
+- Vendor
+- Notes
+
+### Add Insurance
+
+- Date
+- Amount
+- Provider
+- Notes
+
+This is not a secondary feature.
+
+It makes the application genuinely usable rather than “only an OCR demo.”
+
+---
+
+# Feature 3 — Vehicle Dashboard
+
+The dashboard should answer the owner’s most important questions at a glance.
+
+### Top metrics
+
+- Total spend
+- Fuel spend
+- Maintenance spend
+- Average km/L
+- Cost per km
+- Last odometer reading
+
+### Charts
+
+1. Fuel efficiency over time
+2. Monthly spending by category
+3. Cumulative vehicle spending
+4. Optional category distribution
+
+### Empty-state behavior
+
+Never show a broken chart.
+
+Use friendly states such as:
+
+> “Add two fuel records with odometer readings to calculate km/L.”
+
+---
+
+# Feature 4 — Maintenance Intelligence
+
+This has two layers.
+
+## Layer A — Deterministic maintenance rules
+
+Example schedule:
+
+```python
+MAINTENANCE_SCHEDULE_KM = {
+    "oil_change": 5000,
+    "air_filter": 10000,
+    "brake_check": 15000,
+    "tire_rotation": 8000
+}
 ```
+
+These values are **product heuristics**, not universal manufacturer instructions.
+
+The app should label them clearly:
+
+> “SafarSync baseline schedule — always follow the vehicle manufacturer’s recommendations.”
+
+The engine calculates:
+
+- last service,
+- current odometer,
+- distance since service,
+- due/not due status.
+
+## Layer B — Qwen explanation
+
+Only after the deterministic engine produces facts should Qwen explain them.
+
+Example input:
+
+```text
+Current odometer: 84,520 km
+Oil change interval: 5,000 km
+Last oil change: 78,900 km
+Distance since oil change: 5,620 km
+Fuel efficiency trend: declining from 13.2 km/L to 11.8 km/L
+```
+
+Expected answer:
+
+> “Your oil-change interval has been exceeded by about 620 km. Your recent fuel efficiency has also fallen from 13.2 to 11.8 km/L, so it would be reasonable to inspect the engine oil, tire pressure, air filter, and other basic causes.”
+
+The AI should not diagnose mechanical faults.
+
+---
+
+# Feature 5 — Expense Anomaly Signals
+
+This is a high-value, low-cost hackathon feature.
+
+SafarSync can flag:
+
+- unusually expensive fuel purchase,
+- unusual fuel quantity,
+- sudden efficiency drop,
+- maintenance spending much higher than the vehicle’s recent average,
+- suspiciously repeated vendor patterns.
+
+Do this primarily with Python statistics/rules.
+
+Example:
+
+```text
+⚠ Unusual Fuel Purchase
+
+This fill-up is 38% above your vehicle's recent average fuel cost.
+```
+
+Then let Qwen explain it only when the user opens the detail.
+
+This reduces API calls and keeps the system trustworthy.
+
+---
+
+# Feature 6 — Vehicle Logbook
+
+The logbook is the “memory” of SafarSync.
+
+Every record should include:
+
+- date,
+- type,
+- amount,
+- odometer,
+- liters,
+- description,
+- vendor,
+- AI confidence (when applicable),
+- source (AI scan/manual).
+
+Add:
+
+- search,
+- filter by record type,
+- date sorting,
+- vehicle switching.
+
+---
+
+# Feature 7 — PDF Vehicle History
+
+Generate a clean PDF containing:
+
+- vehicle identity,
+- registration number,
+- generation date,
+- expense summary,
+- complete record table,
+- maintenance status,
+- fuel summary.
+
+The PDF is a strong business feature because it changes the product from “dashboard” into a **portable vehicle record**.
+
+Potential future use:
+
+> “Show the buyer the vehicle’s documented maintenance history.”
+
+---
+
+# Feature 8 — Ask SafarSync
+
+A chat/voice-style assistant can answer questions using the vehicle’s own data.
+
+Examples:
+
+> “How much did I spend on fuel in August?”
+
+> “What was my average fuel efficiency?”
+
+> “When did I last change my oil?”
+
+> “Which category costs me the most?”
+
+### Important architecture rule
+
+Do **not** send the entire raw database blindly to the LLM.
+
+Instead:
+
+1. User asks question.
+2. Python calculates/retrieves the relevant facts.
+3. Qwen receives the compact verified context.
+4. Qwen writes the natural-language answer.
+
+That makes the assistant cheaper, faster, and less hallucination-prone.
+
+---
+
+# 5. Final MVP Scope
+
+## MUST HAVE
+
+These are non-negotiable:
+
+- [ ] Add vehicle
+- [ ] Switch active vehicle
+- [ ] Manual fuel entry
+- [ ] Manual maintenance entry
+- [ ] Manual insurance entry
+- [ ] Receipt image upload
+- [ ] Qwen receipt extraction
+- [ ] Editable review form
+- [ ] Save extracted record
+- [ ] Dashboard
+- [ ] Fuel efficiency calculation
+- [ ] Spending analytics
+- [ ] Maintenance due calculation
+- [ ] AI maintenance explanation
+- [ ] Vehicle logbook
+- [ ] PDF export
+- [ ] Friendly error handling
+- [ ] Seed/demo data
+- [ ] Free-quota protection
+
+## SHOULD HAVE
+
+Build these after MVP is stable:
+
+- [ ] Expense anomaly flags
+- [ ] Natural-language Ask SafarSync
+- [ ] Voice input
+- [ ] Better visual polish
+- [ ] Demo mode
+- [ ] Data validation badges
+- [ ] Delete/edit record
+
+## DO NOT BUILD BEFORE THE CORE WORKS
+
+- Google Maps
+- Real-time GPS tracking
+- Fleet management
+- WhatsApp bot
+- Resale-price ML
+- OCR fine-tuning
+- RAG
+- Vector database
+- User authentication
+- Payments
+- Multi-tenant architecture
+- Kubernetes
+- Complex backend microservices
+
+A hackathon judge rewards a complete product far more than ten unfinished ideas.
+
+---
+
+# 6. Winning Architecture
+
+Keep it simple and explainable.
+
+```text
+┌─────────────────────────────────────────────┐
+│                 STREAMLIT UI                │
+│                                             │
+│ Dashboard | Scan | Add Expense | Logbook    │
+│ Maintenance | Ask SafarSync | Vehicles      │
+└──────────────────────┬──────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────┐
+│               APPLICATION LOGIC             │
+│                                             │
+│ analytics.py   maintenance.py   insights.py│
+│ validation.py  anomaly.py       pdf_report │
+└───────────────┬─────────────────┬───────────┘
+                │                 │
+                ▼                 ▼
+┌─────────────────────┐   ┌──────────────────────┐
+│      SQLite DB      │   │   Alibaba Cloud AI   │
+│                     │   │                      │
+│ vehicles            │   │ Qwen Character + free image/OCR pipeline              │
+│ records             │   │ Qwen3.7-plus         │
+└─────────────────────┘   └──────────────────────┘
+```
+
+---
+
+# 7. Final Project Structure
+
+Use a slightly more professional structure than the original six-file approach.
+
+```text
 safarsync-ai/
-├── .env                  ← your DashScope API key — NEVER commit this to Git
-├── .gitignore             ← must contain .env, venv/, __pycache__/, *.db
+│
+├── .env
+├── .gitignore
+├── README.md
 ├── requirements.txt
-├── database.py            ← Layer 4 — all read/write functions
-├── receipt_scanner.py     ← Layer 3 — Qwen-VL OCR engine (build first, it's the core differentiator)
-├── analytics.py           ← Layer 2 — fuel calculations
-├── maintenance.py         ← Layer 2/3 — maintenance advisor
-├── pdf_report.py           ← Layer 2 — PDF logbook export
-├── app.py                  ← Layer 1 — the full Streamlit app, built last, ties everything together
-└── safarsync.db             ← auto-created on first run — do not create manually
+│
+├── app.py
+├── config.py
+├── ai_client.py
+├── database.py
+├── receipt_scanner.py
+├── analytics.py
+├── maintenance.py
+├── anomaly.py
+├── insights.py
+├── validation.py
+├── pdf_report.py
+├── demo_data.py
+│
+├── tests/
+│   ├── test_database.py
+│   ├── test_analytics.py
+│   ├── test_maintenance.py
+│   └── test_validation.py
+│
+└── safarsync.db
 ```
+
+### Why `ai_client.py` matters
+
+Do not create multiple copies of Alibaba API setup.
+
+All model calls should go through one place.
+
+This gives you:
+
+- one API key configuration,
+- one base URL,
+- one timeout policy,
+- one error strategy,
+- easier model switching,
+- easier testing.
 
 ---
 
-## 6. Account & Environment Setup — Step by Step
+# 8. Environment Setup
 
-Do this before opening Qoder to build anything (most of it should already be done from Section 4).
+## Step 1 — Python
 
-### Step 1 — Confirm Python
+Recommended:
+
+**Python 3.11 or newer**
+
+Check:
 
 ```bash
 python --version
 ```
-Expect `Python 3.11` or higher. If it fails, reinstall from python.org and re-check "Add to PATH."
 
-### Step 2 — Create the project and a virtual environment
+---
+
+## Step 2 — Create the project
 
 ```bash
 mkdir safarsync-ai
@@ -199,38 +648,65 @@ cd safarsync-ai
 python -m venv venv
 ```
 
-Activate it:
-- Windows: `venv\Scripts\activate`
-- Mac/Linux: `source venv/bin/activate`
+Windows:
 
-You'll know it worked because your terminal prompt now starts with `(venv)`. **Do this every time you reopen a terminal** — it's the single most common "why isn't my package installed" bug beginners hit.
-
-### Step 3 — Open the folder in Qoder
-
-Open Qoder → File → Open Folder → select `safarsync-ai`. Confirm the Qwen coding model is selected (Section 3's checklist).
-
-### Step 4 — Create `.env` and `.gitignore` by hand (don't let Qoder touch secrets)
-
-`.env`:
+```bash
+venv\Scripts\activate
 ```
+
+Mac/Linux:
+
+```bash
+source venv/bin/activate
+```
+
+---
+
+# 9. `.env` Design
+
+Create:
+
+```text
 DASHSCOPE_API_KEY=your_key_here
+DASHSCOPE_BASE_URL=https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+QWEN_VISION_MODEL=qwen-plus-character
+QWEN_TEXT_MODEL=qwen-plus-character
 ```
 
-`.gitignore`:
-```
+If your Model Studio console provides a workspace-specific Singapore URL, use that instead.
+
+The official OpenAI-compatible documentation supports the Singapore workspace-specific endpoint format. citeturn643886search3turn643886search6
+
+Never commit `.env`.
+
+---
+
+# 10. `.gitignore`
+
+```text
 .env
 venv/
 __pycache__/
-*.db
 *.pyc
+*.db
+.streamlit/secrets.toml
 ```
 
-> **⚠️ Security note from your DevOps background, applied correctly:** commit `.gitignore` *before* your first commit that includes `.env`, or the key ends up in your Git history permanently even if you delete the file later. If you ever paste your key into a Qoder chat by accident, rotate it immediately in the DashScope console.
+Before your first Git commit:
 
-### Step 5 — Install dependencies
-
-Create `requirements.txt`:
+```bash
+git status
 ```
+
+Confirm `.env` is not listed.
+
+---
+
+# 11. Python Dependencies
+
+Use only what the application actually needs.
+
+```text
 streamlit
 openai
 pandas
@@ -240,413 +716,1565 @@ pillow
 python-dotenv
 ```
 
-Then:
+Install:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-> Why `openai`, not an Alibaba-specific package? Qwen models expose an **OpenAI-compatible API** — you use the standard `openai` Python library and just point it at Alibaba's endpoint (`https://dashscope-intl.aliyuncs.com/compatible-mode/v1` for the international DashScope endpoint — confirm the exact URL in your DashScope console under API docs, since Alibaba occasionally adjusts regional endpoints). This is exactly the kind of two-line change the hackathon materials point to as Qwen's beginner-friendliness.
+Do not add libraries merely because they sound impressive.
 
-### Step 6 (Stretch only) — Google Maps key
-
-Only do this if/when you start Feature 6. Google Cloud Console → new project → enable **Distance Matrix API** → create credentials → API key → add `GOOGLE_MAPS_API_KEY=...` to `.env`.
+Every new dependency is another possible failure point.
 
 ---
 
-## 7. The Qoder Quest Workflow — Master Build Plan
+# 12. Alibaba Cloud Setup — Exact Free-Tier Procedure
 
-**How to use each block below:** open Qoder's **Quest** window, paste the entire prompt exactly as written, let it run to completion, then work through the verification checklist before moving to the next file. Do not start the next Quest until the current one is verified — a broken `database.py` breaks every file after it.
+## Step 1 — Open Model Studio
 
-### 7.1 Quest 1 — `database.py` (build this first — everything depends on it)
+Use the Singapore region.
 
+## Step 2 — Activate Model Studio
+
+The current Alibaba documentation states that the new-user free quota is available in Singapore and eligible models must use the International deployment scope. citeturn643886search1
+
+## Step 3 — Check the model quota page
+
+Look for:
+
+- `qwen-plus-character`
+- `qwen-plus-character`
+
+The free quota page shows remaining tokens and expiry.
+
+## Step 4 — Turn on Free Quota Only
+
+Do this for every eligible model you use.
+
+This gives you an additional safety barrier against unexpected charges. Alibaba explicitly documents that model calls stop once the free quota is exhausted when this mode is enabled. citeturn643886search0turn643886search1
+
+## Step 5 — Create a general API key
+
+Use the regular Model Studio API key.
+
+Do not use an API key intended exclusively for a paid Token Plan/Coding Plan workflow.
+
+Alibaba’s API-key documentation distinguishes standard pay-as-you-go API keys from dedicated Token Plan/Coding Plan keys. citeturn643886search4
+
+## Step 6 — Test one model before building the app
+
+Do not build the entire app before confirming:
+
+1. API key works.
+2. Base URL works.
+3. `qwen-plus-character` works with an image.
+4. `qwen-plus-character` works with text.
+5. Free quota is being consumed rather than paid balance.
+
+---
+
+# 13. Shared AI Client
+
+Qoder should generate an `ai_client.py` that:
+
+- loads environment variables,
+- creates one OpenAI-compatible client,
+- exposes a text-generation helper,
+- exposes a vision helper,
+- returns friendly exceptions,
+- uses short timeouts,
+- never prints API keys,
+- never writes keys to logs.
+
+Suggested interface:
+
+```python
+def get_client() -> OpenAI:
+    ...
+
+def ask_text(
+    prompt: str,
+    model: str | None = None,
+    max_tokens: int = 500
+) -> str:
+    ...
+
+def ask_vision(
+    image_data_url: str,
+    prompt: str,
+    model: str | None = None,
+    max_tokens: int = 500
+) -> str:
+    ...
 ```
-Create a file called database.py for a Python + SQLite project called SafarSync AI.
 
-Requirements:
-1. Use Python's built-in sqlite3 module only — no ORM.
-2. Create a function init_db() that connects to "safarsync.db" (creating it if it
-   doesn't exist) and creates two tables if they don't already exist:
+The exact implementation should be generated by Qoder from this specification.
 
-   TABLE vehicles:
-     - id INTEGER PRIMARY KEY AUTOINCREMENT
-     - name TEXT NOT NULL (e.g. "Honda Civic 2019")
-     - registration_number TEXT
-     - created_at TEXT (ISO timestamp, default to current time)
+---
 
-   TABLE records:
-     - id INTEGER PRIMARY KEY AUTOINCREMENT
-     - vehicle_id INTEGER (foreign key referencing vehicles.id)
-     - record_type TEXT (one of: "fuel", "maintenance", "insurance")
-     - date TEXT (ISO date, e.g. "2026-08-21")
-     - amount_pkr REAL
-     - liters REAL (nullable — only relevant for fuel records)
-     - odometer_km INTEGER (nullable)
-     - description TEXT (services performed, or notes)
-     - vendor_name TEXT (mechanic/station/company name)
-     - raw_ocr_json TEXT (nullable — stores the original AI extraction for audit)
-     - created_at TEXT (ISO timestamp, default to current time)
+# 14. Receipt Scanner Specification
 
-3. Write these functions, each with a clear docstring, type hints, and try/except
-   error handling that raises a clear, custom-message exception rather than
-   letting sqlite3 errors leak unformatted to the caller:
-   - add_vehicle(name: str, registration_number: str = "") -> int (returns new vehicle id)
-   - get_vehicles() -> list[dict]
-   - add_record(vehicle_id, record_type, date, amount_pkr, liters, odometer_km,
-     description, vendor_name, raw_ocr_json) -> int (returns new record id)
-   - get_records(vehicle_id: int, record_type: str = None) -> list[dict]
-     (record_type optional filter)
-   - get_record_by_id(record_id: int) -> dict | None
-   - delete_record(record_id: int) -> bool
+Qoder should create `receipt_scanner.py`.
 
-4. Every function that returns rows must return them as a list of plain Python
-   dicts (use sqlite3.Row and dict(row) — not raw tuples), so other files can use
-   record["amount_pkr"] instead of record[3].
-5. At the bottom of the file, add:
-   if __name__ == "__main__":
-       init_db()
-       print("Database initialized successfully!")
-6. Add inline comments explaining each SQL statement in plain English, since I am
-   a first-semester student and have not used SQLite before — assume no prior
-   SQLite knowledge when writing comments.
+## Input
 
-Do not add any Streamlit, Qwen API, or UI code to this file — it is data-layer
-only.
+A local image file.
+
+## Processing pipeline
+
+```text
+Image
+  ↓
+Pillow validation
+  ↓
+Resize/compress if necessary
+  ↓
+Convert to base64 data URL
+  ↓
+Qwen Character + free image/OCR pipeline
+  ↓
+JSON extraction
+  ↓
+Python schema validation
+  ↓
+Confidence + warnings
+  ↓
+Editable Streamlit form
 ```
 
-**Verify before moving on:**
+Alibaba documents that the OpenAI-compatible interface accepts Base64-encoded Data URLs for image input. citeturn193555search0turn193555search2
+
+## Prompt design
+
+The prompt should instruct the model to:
+
+- inspect the full receipt,
+- support Urdu/English/mixed text,
+- support handwriting,
+- support low-light/blurry photos,
+- never invent a value,
+- return `null` when genuinely unreadable,
+- set low confidence when uncertain,
+- output JSON only.
+
+### Strong extraction schema
+
+```json
+{
+  "record_type": "fuel | maintenance | insurance | unknown",
+  "date": "YYYY-MM-DD | null",
+  "amount_pkr": 0,
+  "liters": 0,
+  "odometer_km": 0,
+  "description": "string | null",
+  "vendor_name": "string | null",
+  "confidence": "high | medium | low"
+}
+```
+
+Add:
+
+```json
+"warnings": []
+```
+
+Example:
+
+```json
+{
+  "warnings": [
+    "Odometer was partially obscured."
+  ]
+}
+```
+
+---
+
+# 15. Validation Layer
+
+AI output must never be trusted blindly.
+
+Create `validation.py`.
+
+Validate:
+
+- date format,
+- amount >= 0,
+- liters > 0 when fuel,
+- odometer >= 0,
+- known record type,
+- realistic numeric ranges,
+- required fields.
+
+Example:
+
+```text
+AI says:
+amount_pkr = -45000
+
+Python says:
+Rejected — amount cannot be negative.
+```
+
+The UI then lets the user correct it.
+
+---
+
+# 16. Database Design
+
+Use SQLite.
+
+## Table: vehicles
+
+```sql
+id INTEGER PRIMARY KEY AUTOINCREMENT
+name TEXT NOT NULL
+registration_number TEXT
+created_at TEXT NOT NULL
+```
+
+## Table: records
+
+```sql
+id INTEGER PRIMARY KEY AUTOINCREMENT
+vehicle_id INTEGER NOT NULL
+record_type TEXT NOT NULL
+date TEXT NOT NULL
+amount_pkr REAL
+liters REAL
+odometer_km INTEGER
+description TEXT
+vendor_name TEXT
+source TEXT
+confidence TEXT
+raw_ocr_json TEXT
+created_at TEXT NOT NULL
+```
+
+`source` should be:
+
+- `ai_scan`
+- `manual`
+- `demo`
+
+This makes the provenance of every record visible.
+
+---
+
+# 17. Analytics Engine
+
+`analytics.py` should calculate:
+
+## Fuel efficiency
+
+For consecutive fuel records:
+
+```text
+km/L =
+(current odometer - previous odometer)
+/
+current fill liters
+```
+
+Skip invalid pairs.
+
+Return warnings.
+
+## Monthly spending
+
+Group by:
+
+```text
+YYYY-MM
+```
+
+and:
+
+```text
+fuel
+maintenance
+insurance
+```
+
+## Total vehicle cost
+
+```text
+all expenses / total distance
+```
+
+Return `None` when there is insufficient data.
+
+Never divide by zero.
+
+---
+
+# 18. Maintenance Engine
+
+`maintenance.py` should produce structured status:
+
+```json
+{
+  "type": "oil_change",
+  "interval": 5000,
+  "km_since_last": 5620,
+  "status": "overdue",
+  "overdue_by": 620
+}
+```
+
+Possible statuses:
+
+- `not_due`
+- `due_soon`
+- `overdue`
+- `unknown`
+
+A richer status model looks more professional than a simple yes/no flag.
+
+---
+
+# 19. AI Insight Engine
+
+Create `insights.py`.
+
+It should not calculate anything important.
+
+Instead it receives already-calculated facts:
+
+```text
+Total fuel spend: PKR 31,400
+Average fuel efficiency: 12.1 km/L
+Previous month: 13.2 km/L
+Oil service status: overdue by 620 km
+Top expense category: fuel
+```
+
+Then Qwen writes a short user-friendly explanation.
+
+### Prompt rules
+
+The model must:
+
+- use only supplied facts,
+- not invent new measurements,
+- not diagnose mechanical failures,
+- not claim certainty,
+- keep output under 120 words,
+- mention specific numbers,
+- prioritize actionable information.
+
+---
+
+# 20. Ask SafarSync Architecture
+
+For a user question:
+
+```text
+User question
+      ↓
+Intent detection
+      ↓
+Python data retrieval
+      ↓
+Compact verified context
+      ↓
+Qwen3.7-plus
+      ↓
+Natural-language answer
+```
+
+Example:
+
+### User
+
+> “How much did I spend on fuel this month?”
+
+### Python computes
+
+```text
+Fuel spending, August 2026 = PKR 27,450
+```
+
+### Qwen receives
+
+```text
+Question:
+How much did I spend on fuel this month?
+
+Verified answer:
+PKR 27,450
+```
+
+### Qwen responds
+
+> “You spent PKR 27,450 on fuel this month.”
+
+This is much safer than asking the LLM to do SQL arithmetic itself.
+
+---
+
+# 21. Free Voice Input
+
+Treat voice as a **showcase feature**, not a dependency for the core product.
+
+Use browser speech recognition where supported.
+
+Concept:
+
+```text
+Microphone
+   ↓
+Browser speech-to-text
+   ↓
+Text question
+   ↓
+Python context retrieval
+   ↓
+Qwen3.7-plus
+   ↓
+Answer
+```
+
+This avoids adding another paid speech service.
+
+Because browser speech recognition support can vary, the text-input path must always remain available.
+
+For the final demo:
+
+> “You can talk to your vehicle data instead of searching through spreadsheets.”
+
+That is an excellent visual moment.
+
+---
+
+# 22. App Navigation
+
+Sidebar:
+
+```text
+🚗 SafarSync AI
+
+Active Vehicle
+[Honda Civic 2019 ▼]
+
+Dashboard
+📊 Dashboard
+📷 Scan Receipt
+➕ Add Expense
+📖 Vehicle Logbook
+🔧 Maintenance
+🤖 Ask SafarSync
+🚘 Manage Vehicles
+```
+
+Always show:
+
+```text
+Powered by Alibaba Cloud Qwen
+```
+
+---
+
+# 23. Dashboard Layout
+
+## Header
+
+```text
+Honda Civic 2019
+LEA-1234
+```
+
+## KPI row
+
+```text
+Total Spend     Fuel Spend     Avg km/L     Cost/km
+PKR 86,540      PKR 51,200     12.1          PKR 8.4
+```
+
+## Main chart
+
+Fuel efficiency trend.
+
+## Secondary chart
+
+Monthly spending.
+
+## Insight card
+
+```text
+🤖 SafarSync Insight
+
+Your fuel efficiency fell from 13.2 km/L
+to 11.8 km/L over the last 3 fuel records.
+
+Your next oil change is overdue by 620 km.
+```
+
+This card should feel like the “AI value” rather than another chart.
+
+---
+
+# 24. Scan Receipt UX
+
+Do not make the page look like a developer console.
+
+The flow should be:
+
+### Step 1
+
+```text
+Take a photo or upload receipt
+```
+
+### Step 2
+
+Show:
+
+```text
+Analyzing receipt with Qwen...
+```
+
+### Step 3
+
+Show extraction:
+
+```text
+✓ Fuel
+✓ PKR 4,500
+✓ 32.5 liters
+✓ 84,520 km
+✓ PSO
+```
+
+### Step 4
+
+Show:
+
+```text
+Review before saving
+```
+
+Every field editable.
+
+### Step 5
+
+After save:
+
+```text
+✓ Expense added to your vehicle history.
+```
+
+Then optionally show:
+
+```text
+View Dashboard
+```
+
+---
+
+# 25. Demo Dataset
+
+Do not depend on the judges waiting while you create ten records.
+
+Create `demo_data.py`.
+
+Seed realistic records for:
+
+- 1 vehicle,
+- 8–15 fuel entries,
+- 4–6 maintenance entries,
+- 1–2 insurance entries.
+
+The dates should span several months.
+
+Include:
+
+- fuel efficiency changes,
+- at least one maintenance item due,
+- at least one anomaly,
+- several vendors.
+
+The dashboard should therefore look “alive” instantly.
+
+---
+
+# 26. Demo Mode
+
+Add a simple environment variable:
+
+```text
+DEMO_MODE=true
+```
+
+When enabled:
+
+- demo data can be loaded,
+- sample records are immediately available,
+- AI failures can fall back to a prepared explanation,
+- the app remains visually demonstrable.
+
+Do not fake AI calls.
+
+If the API is unavailable, say:
+
+> “Live AI service unavailable. Showing the last successful analysis.”
+
+This is honest and keeps the demo functional.
+
+---
+
+# 27. $0 Deployment
+
+Do **not** make Alibaba ECS a required part of the project.
+
+ECS could introduce:
+
+- billing complexity,
+- setup time,
+- another failure point,
+- unnecessary infrastructure work.
+
+For a zero-budget hackathon deployment, use **Streamlit Community Cloud**.
+
+Streamlit documents Community Cloud as a free deployment platform connected to GitHub. citeturn193555search5turn193555search6
+
+## Important limitation
+
+SQLite on a hosted ephemeral environment is not the same as a production multi-user database.
+
+Therefore:
+
+- local demo = fully persistent during the local session,
+- hosted hackathon demo = use seeded/demo data and understand that filesystem persistence is not a production guarantee.
+
+For the hackathon this is acceptable because the scoring target is the product demonstration, not enterprise persistence.
+
+---
+
+# 28. Qoder Strategy — 2,180 Credits
+
+Your Qoder credits are a limited engineering budget.
+
+Treat them like one.
+
+## Rule 1
+
+Do not spend Quest credits on tiny edits.
+
+Use:
+
+- **Quest Mode** for large modules.
+- **Agent Mode** for debugging and small changes.
+
+## Rule 2
+
+Give Qoder complete specifications.
+
+Bad:
+
+> “Make dashboard.”
+
+Good:
+
+> “Create the Streamlit dashboard page using these existing analytics functions, with four KPI cards, two Plotly charts, empty-state messages, active vehicle filtering, and graceful handling of insufficient data. Do not rewrite database.py.”
+
+## Rule 3
+
+Never ask Qoder to “fix everything.”
+
+Give it one failure at a time.
+
+---
+
+# 29. Recommended Qoder Build Sequence
+
+## QUEST 0 — Repository + skeleton
+
+Create:
+
+- app.py
+- config.py
+- ai_client.py
+- database.py
+- requirements.txt
+- `.gitignore`
+- tests folder
+
+Do not implement the full UI.
+
+Verify:
+
+```bash
+python -m compileall .
+```
+
+---
+
+# QUEST 1 — Database
+
+Build:
+
+- schema,
+- CRUD functions,
+- vehicle functions,
+- record functions,
+- clean errors.
+
+Test:
+
 ```bash
 python database.py
 ```
-Expect to see `Database initialized successfully!` and a new `safarsync.db` file appear in your folder. Open it with any SQLite viewer (or ask Qoder in Agent Mode: *"write me a 5-line script to print all tables in safarsync.db"*) and confirm both tables exist with the right columns.
 
-### 7.2 Quest 2 — `receipt_scanner.py` (your core differentiator — build this second)
+Expected:
 
-```
-Create a file called receipt_scanner.py that uses Alibaba Cloud's Qwen-VL vision
-model to extract structured data from a photo of a vehicle-related receipt
-(fuel receipt, mechanic bill, or insurance document), which may be handwritten
-in Urdu, printed in English, or a mix of both.
-
-Requirements:
-1. Use the `openai` Python library, pointed at Alibaba Cloud's DashScope
-   OpenAI-compatible endpoint. Load the API key from the DASHSCOPE_API_KEY
-   environment variable using python-dotenv — never hard-code the key.
-2. Use the model name "qwen-vl-plus".
-3. Write a function:
-   scan_receipt(image_path: str) -> dict
-   that:
-   a. Opens the image, converts it to base64.
-   b. Sends it to Qwen-VL with a system/user prompt instructing the model to
-      act as a receipt-reading assistant for Pakistani vehicle expense
-      receipts, and to return ONLY a JSON object (no prose, no markdown code
-      fences) with exactly these keys:
-      {
-        "record_type": "fuel" | "maintenance" | "insurance" | "unknown",
-        "date": "YYYY-MM-DD or null if unreadable",
-        "amount_pkr": number or null,
-        "liters": number or null,
-        "odometer_km": integer or null,
-        "description": "short description of services/items, or null",
-        "vendor_name": "station or mechanic or company name, or null",
-        "confidence": "high" | "medium" | "low"
-      }
-      The prompt must explicitly tell the model that receipts may be
-      handwritten, in Urdu, blurry, or low-light, and to make its best
-      reasonable extraction rather than refusing, setting fields to null only
-      when genuinely unreadable, and to set "confidence" to "low" whenever it
-      had to guess.
-   c. Parses the model's response as JSON. If parsing fails (e.g. the model
-      added extra text), attempt to extract the first {...} JSON block with a
-      regex before giving up.
-   d. Returns the parsed dict, with the raw model response also included
-      under a "raw_response" key for debugging/audit purposes.
-   e. Wraps the whole API call in a try/except that catches network errors,
-      auth errors, and JSON parse errors separately, and returns a dict like
-      {"error": "<clear human-readable message>"} instead of crashing, so the
-      calling Streamlit page can show the user a friendly error instead of a
-      stack trace.
-4. Add a __main__ block that, if run directly, takes a file path from
-   sys.argv[1] and pretty-prints the result — this is how I will test this
-   file standalone before wiring it into the app.
-5. Add clear comments explaining what base64 encoding is and why it's needed,
-   since this is a new concept for me.
+```text
+Database initialized successfully!
 ```
 
-**Verify before moving on:**
-1. Take 1 real photo of any receipt (or any printed/handwritten note with a date and number on it, if you don't have a real receipt handy yet).
-2. Run:
+---
+
+# QUEST 2 — AI Client
+
+Build:
+
+- environment loading,
+- OpenAI-compatible Alibaba client,
+- model selection,
+- text helper,
+- vision helper,
+- timeout,
+- safe error handling.
+
+Test with one text request.
+
+Then stop.
+
+Do not proceed until the AI connection is confirmed.
+
+---
+
+# QUEST 3 — Receipt Scanner
+
+Build:
+
+- Pillow image validation,
+- Base64 conversion,
+- Qwen Character + free image/OCR pipeline request,
+- JSON extraction,
+- fallback JSON parsing,
+- validation,
+- confidence handling.
+
+Test three images:
+
+1. printed receipt,
+2. handwritten receipt,
+3. poor-quality image.
+
+---
+
+# QUEST 4 — Analytics + Anomaly
+
+Build:
+
+- fuel efficiency,
+- monthly spending,
+- cost per km,
+- trend detection,
+- anomaly signals.
+
+Write unit tests.
+
+Run:
+
 ```bash
-python receipt_scanner.py path/to/your/photo.jpg
+pytest
 ```
-3. Confirm you get back a clean JSON dict with plausible values — not a stack trace, not raw unparsed text.
-4. **If you get an auth error:** re-check `.env` has no extra spaces around your key and that you restarted the terminal after creating `.env`.
-5. **If JSON parsing fails often:** go into Agent Mode (not Quest) and ask Qoder to tighten the prompt inside `scan_receipt()` to more strongly enforce JSON-only output — this is a one-line prompt-engineering fix, not a rebuild.
-
-### 7.3 Quest 3 — `analytics.py`
-
-```
-Create a file called analytics.py for SafarSync AI. It imports the get_records
-function from database.py and computes fuel/expense analytics for a given
-vehicle_id.
-
-Requirements:
-1. Function calculate_fuel_efficiency(vehicle_id: int) -> list[dict]
-   For all "fuel" records of a vehicle sorted by date/odometer ascending,
-   compute km/L between each consecutive pair of fuel records as:
-   (odometer_km_current - odometer_km_previous) / liters_current
-   Skip any pair where odometer_km is missing on either record, or where the
-   distance is zero or negative (bad data) — do not crash, just skip and note
-   it was skipped in a returned "warnings" list.
-2. Function monthly_spending_summary(vehicle_id: int) -> dict
-   Returns total amount_pkr grouped by month (YYYY-MM) and by record_type,
-   using pandas. Return as a dict of DataFrame.to_dict('records') style, ready
-   for a Plotly chart.
-3. Function total_cost_per_km(vehicle_id: int) -> float | None
-   Total spending across all record types divided by total distance driven
-   (max odometer_km - min odometer_km across all records for that vehicle).
-   Return None with no error if there isn't enough data yet (fewer than 2
-   odometer readings) — never divide by zero.
-4. All functions must handle the case of zero records for a vehicle gracefully
-   (return empty lists/dicts, not exceptions) — a brand-new vehicle with no
-   data yet must not break the dashboard.
-5. Add a short comment above each function explaining what it calculates and
-   why, in plain English, for someone new to pandas.
-```
-
-**Verify before moving on:** In a Python shell or a throwaway test script, add 2–3 fake fuel records via `database.py`'s `add_record()` with different odometer readings and dates, then call each analytics function and confirm the numbers are arithmetically correct by hand.
-
-### 7.4 Quest 4 — `maintenance.py`
-
-```
-Create a file called maintenance.py for SafarSync AI.
-
-Requirements:
-1. A constant dict MAINTENANCE_SCHEDULE_KM mapping common maintenance types to
-   recommended intervals in km, e.g.:
-   {"oil_change": 5000, "air_filter": 10000, "brake_check": 15000,
-    "tire_rotation": 8000}
-2. Function check_due_maintenance(vehicle_id: int) -> list[dict]
-   Using get_records() from database.py, find the vehicle's most recent
-   odometer_km, and for each item in MAINTENANCE_SCHEDULE_KM, find the last
-   maintenance record whose description mentions that type (simple case-
-   insensitive substring match), and compute km since that service. If
-   km_since >= the interval, or if there is no record of that service at all,
-   mark it as due. Return a list of dicts like:
-   {"type": "oil_change", "km_since_last": 5200, "interval": 5000, "status": "due"}
-3. Function get_ai_maintenance_advice(vehicle_id: int) -> str
-   Takes the output of check_due_maintenance() plus the vehicle's recent fuel
-   efficiency (import from analytics.py), and sends a short, clearly-labeled
-   summary of both to Qwen-Max (model name "qwen-max") via the same
-   openai-compatible DashScope client pattern used in receipt_scanner.py,
-   asking it to write 2-4 friendly, plain-language sentences of maintenance
-   advice for a Pakistani vehicle owner — practical, not alarmist, and
-   mentioning specific numbers from the data it was given. Wrap the API call
-   in the same try/except pattern as receipt_scanner.py, returning a safe
-   fallback string like "AI advisor unavailable right now — here is your raw
-   maintenance status instead." if the call fails, so the app never crashes
-   because of this feature.
-4. Reuse the DashScope client setup pattern (env var, openai-compatible
-   endpoint) exactly as done in receipt_scanner.py, don't invent a new one.
-```
-
-**Verify before moving on:** call `check_due_maintenance()` with your test data from 7.3 and confirm the due/not-due logic matches your manual expectation. Then call `get_ai_maintenance_advice()` and confirm you get a real, sensible sentence back from Qwen-Max — not an error string.
-
-### 7.5 Quest 5 — `pdf_report.py`
-
-```
-Create a file called pdf_report.py for SafarSync AI using the fpdf2 library.
-
-Requirements:
-1. Function generate_logbook_pdf(vehicle_id: int, output_path: str) -> str
-   Fetches vehicle info and all records for that vehicle via database.py,
-   and generates a clean, professional single-column PDF report containing:
-   - A header with the vehicle name, registration number, and generation date
-   - A table of all records (date, type, amount PKR, description, vendor)
-     sorted by date descending
-   - A summary section at the bottom: total spent, record count, date range
-2. Keep formatting simple and readable (default fpdf2 fonts are fine) — this
-   does not need custom branding, just needs to look organized and be usable
-   as a document a car buyer or insurer could review.
-3. Return the output_path on success. Wrap file-writing in a try/except and
-   raise a clear error message on failure (e.g. invalid path, no records).
-4. Handle the zero-records case by still generating a valid PDF that says
-   "No records yet for this vehicle" instead of crashing or producing a blank
-   file.
-```
-
-**Verify before moving on:** run it against your test vehicle and open the resulting PDF — check it's readable and the totals match what you'd calculate by hand.
-
-### 7.6 Quest 6 — `app.py` (build this last — it ties everything together)
-
-```
-Create app.py — the main Streamlit application for SafarSync AI, tying
-together database.py, receipt_scanner.py, analytics.py, maintenance.py, and
-pdf_report.py, all of which already exist in this project and should be
-imported, not rewritten.
-
-Requirements:
-1. Call init_db() from database.py once at the top of the script (outside any
-   function) so the database always exists before any page runs.
-2. Use st.set_page_config with page_title "SafarSync AI" and a car emoji icon.
-3. Build a sidebar navigation (st.sidebar.radio or st.sidebar.selectbox) with
-   these pages: "Dashboard", "Scan Receipt", "Vehicle Logbook", "Maintenance",
-   "Manage Vehicles".
-4. On first run (no vehicles in the database), show only a friendly
-   "Manage Vehicles" prompt to add a first vehicle before unlocking other
-   pages — do not let the app show broken empty charts before any data
-   exists.
-5. "Manage Vehicles" page: a form to add a new vehicle (name, registration
-   number) using add_vehicle() from database.py, and a selectbox at the top
-   of the sidebar (visible on every page) to choose which vehicle is
-   "active" — store the active vehicle_id in st.session_state so every other
-   page uses it.
-6. "Scan Receipt" page: st.camera_input or st.file_uploader for a receipt
-   photo, saves it to a temp path, calls scan_receipt() from
-   receipt_scanner.py, shows the extracted fields to the user in an editable
-   form (st.form with pre-filled values from the AI extraction, all fields
-   editable in case the AI got something wrong — this is the human-in-the-loop
-   review step), and on submit calls add_record() from database.py, storing
-   the original AI JSON in raw_ocr_json. Show a clear st.success message
-   after saving, and show a clear st.error message (not a crash) if
-   scan_receipt() returns an "error" key.
-7. "Dashboard" page: uses analytics.py functions to show: a Plotly line chart
-   of km/L over time, a Plotly bar chart of monthly spending by category, and
-   st.metric widgets for total spent and cost per km. Handle the "not enough
-   data yet" case with a friendly message, not a broken chart.
-8. "Maintenance" page: calls check_due_maintenance() and
-   get_ai_maintenance_advice() from maintenance.py, shows due items in a
-   clear table (color-code or icon-flag anything overdue), and shows the AI
-   advice text in an st.info box. Include a "Download Full Logbook PDF"
-   button that calls generate_logbook_pdf() from pdf_report.py and offers it
-   via st.download_button.
-9. "Vehicle Logbook" page: a searchable/filterable st.dataframe of all
-   records for the active vehicle (filter by record_type using
-   st.multiselect), sorted by date descending.
-10. Wrap every call to an external file's function in try/except at the
-    Streamlit layer too, so an unexpected error anywhere shows a friendly
-    st.error message instead of crashing the whole app during a live demo.
-11. Add a short st.caption at the bottom of every page: "Powered by Qwen-VL
-    and Qwen-Max on Alibaba Cloud" — this should be visible in every demo
-    screenshot.
-```
-
-**Verify before moving on — full end-to-end test:**
-1. `streamlit run app.py`
-2. Add a real vehicle.
-3. Scan a real receipt photo end to end — extraction → review form → save.
-4. Confirm the record shows up in the Logbook page.
-5. Add 2–3 more records so Dashboard and Maintenance have real data.
-6. Check every page for a full minute each, deliberately trying to break it (empty fields, no vehicle selected, etc.) — see Section 8 for the full QA pass.
 
 ---
 
-## 8. Bug-Free Checklist (run this before you consider the Core Build "done")
+# QUEST 5 — Maintenance + AI Insights
 
-Work through this literally, ticking each box. This is what "production-grade" means in practice for a hackathon judge who will click around your app live.
+Build:
 
-- [ ] Fresh clone/fresh `safarsync.db` deleted and app restarted from zero — confirm "Manage Vehicles" prompt appears cleanly, no crash
-- [ ] Add a vehicle with only required fields — confirm it saves
-- [ ] Scan a clear, well-lit printed receipt — confirm accurate extraction
-- [ ] Scan a blurry or handwritten receipt — confirm it still returns *something* usable and doesn't crash (Qwen-VL should degrade gracefully; if it returns nulls, the review form must still be usable)
-- [ ] Manually edit a wrong field in the review form before saving — confirm the edited value, not the AI's, is what gets saved
-- [ ] Switch between two vehicles using the sidebar selector — confirm each page correctly shows only that vehicle's data
-- [ ] View Dashboard with only 1 fuel record — confirm no divide-by-zero crash on km/L
-- [ ] View Maintenance with zero maintenance records — confirm it shows "all due" or equivalent instead of crashing
-- [ ] Download the PDF logbook — confirm it opens and totals are correct
-- [ ] Turn off your internet and try Scan Receipt — confirm you get a friendly error message, not a frozen app or raw traceback (this exact scenario is your Section 12 emergency backup plan — test it now, not live)
-- [ ] Restart the whole app one final time and repeat the "scan → save → view on dashboard" flow exactly as you will during the live demo, timing yourself
+- maintenance schedule logic,
+- due/overdue status,
+- verified context creation,
+- Qwen explanation.
 
-**If any box fails:** go into Qoder **Agent Mode** (not Quest) and describe exactly what broke and what you expected instead. Agent Mode's checkpoint review means you can see precisely what it changes before accepting — use this for every bug fix so you understand your own codebase.
+Test without AI first.
+
+Then test with AI.
+
+This prevents the LLM from becoming a hidden dependency in your business logic.
 
 ---
 
-## 9. Deployment on Alibaba Cloud (do this only after Section 8 is fully checked)
+# QUEST 6 — Streamlit MVP UI
 
-Your AZ-900 knowledge maps directly here — same core concepts (virtual machines, security groups/firewall rules, SSH access), different console.
+Build only:
 
-1. **Alibaba Cloud Console → ECS (Elastic Compute Service) → Create Instance.** Choose the smallest/cheapest instance type available under your hackathon credits (this is exactly analogous to an Azure VM size — you already know how to reason about this trade-off from AZ-900).
-2. Choose an **Ubuntu** image (simplest for Python/Streamlit deployment).
-3. In the **Security Group** settings, open inbound port **8501** (Streamlit's default port) in addition to port 22 (SSH) — this is the same mental model as an NSG rule in Azure.
-4. SSH into the instance, install Python 3.11+, `git clone` your repository, recreate your `venv`, `pip install -r requirements.txt`, recreate `.env` on the server directly (never via `git push` — the `.gitignore` from Section 6 should already be keeping it out of your repo).
-5. Run `streamlit run app.py --server.port 8501 --server.address 0.0.0.0`.
-6. Visit `http://<your-ecs-public-ip>:8501` from your own laptop to confirm it's live before demo day.
-7. Keep this URL written down somewhere you can read it instantly during your pitch — judges being able to open your app on their own device is a strong signal.
+- Manage Vehicles
+- Add Expense
+- Scan Receipt
+- Dashboard
+- Logbook
+- Maintenance
 
-> If ECS setup eats into time you need for polish and rehearsal, it is completely acceptable to demo locally (`streamlit run app.py` on your laptop, screen-shared) and mention the deployment plan verbally. A flawless local demo beats a live deployment that adds a new point of failure at hour 30.
-
----
-
-## 10. Demo & Pitch Strategy
-
-### 10.1 5-minute structure
-
-| Time | Segment |
-|---|---|
-| 0:00–0:30 | Hook: "Pakistan has 28 million registered vehicles, and almost none of them have a digital expense record." |
-| 0:30–1:15 | Problem, stated concretely — handwritten bills, no fraud protection, no maintenance history, resale value lost |
-| 1:15–3:15 | **Live demo** — scan a real receipt on stage, show the extraction, show it land on the dashboard |
-| 3:15–4:00 | Why Alibaba Cloud — name Qwen-VL, Qwen-Max, and Qoder explicitly, and say *why* (multimodal + Urdu handling + fast agentic build) |
-| 4:00–4:40 | Business model — freemium for individual owners, B2B data licensing to insurers/resale platforms |
-| 4:40–5:00 | Close with the impact number again and a confident final line |
-
-### 10.2 Exact language for the Alibaba Cloud section (use this, it directly targets the judging weight in Section 1.2)
-
-> "SafarSync is built on Alibaba Cloud's Qwen-VL for receipt vision, because it reads Urdu and English handwriting in the same image — that's the actual, local problem we needed solved. We also built the entire application inside Qoder, Alibaba's agentic IDE, which let us go from specification to a fully tested, working product in the time this hackathon gave us."
-
-### 10.3 Prepared answers to likely judge questions
-
-| Question | Answer |
-|---|---|
-| "How is this different from a spreadsheet?" | "A spreadsheet requires you to type every number yourself. SafarSync reads a photo of a handwritten bill and does it for you — that's the entire adoption barrier removed." |
-| "How will you make money?" | "Freemium for individual users, and a B2B data-licensing model — insurers and resale platforms will pay for verified vehicle maintenance history, the same way Carfax works in other markets." |
-| "What if the AI misreads a receipt?" | "Every extraction goes through a human-in-the-loop review step before it's saved — the user sees and can correct every field. We never silently trust the model." |
-| "Why should this win?" | "Handwritten Urdu receipts, CNG-heavy fuel markets, and a resale culture where paper trails matter — this is a Pakistan-specific problem solved with a Pakistan-relevant model choice." |
-| "You're a first-semester student — can you actually build this?" | "I already have — you're looking at it running live. I have a year of DevOps experience and basic LLM knowledge going in; Qoder's agentic build workflow let me focus on getting the product and the AI prompts right, and I own and can explain every line of the codebase." |
+Do not add voice yet.
 
 ---
 
-## 11. Final Checklists
+# QUEST 7 — PDF + Demo Data
 
-### 11.1 Night Before Demo Day
+Build:
 
-- [ ] All Section 8 QA boxes still pass after any last-minute changes
-- [ ] 3 real demo receipt photos ready (fuel, mechanic, insurance), tested and known-good
-- [ ] At least 2 weeks of realistic sample data pre-loaded so Dashboard/Maintenance don't look empty
-- [ ] Pitch rehearsed out loud, timed, at least 3 times — must fit in 5 minutes
-- [ ] Live deployment URL (if used) tested from a phone on mobile data, not just your dev laptop's WiFi
-- [ ] A **backup screen recording** of a full successful demo, saved locally on your phone
-
-### 11.2 Day-of
-
-- [ ] Laptop fully charged, charger packed
-- [ ] `venv` activated, app running and tested one more time before judges arrive
-- [ ] Sample data confirmed present
-- [ ] Backup screen recording accessible in 2 taps if live demo fails
-
-### 11.3 Emergency backups
-
-| Problem | What to do |
-|---|---|
-| Qwen API unreachable | You already tested this in Section 8 — the app shows a friendly error, not a crash. Have one pre-scanned result saved to narrate over: "Here's a result from our earlier testing." |
-| App crashes mid-demo | Immediately switch to the backup screen recording — don't debug live in front of judges |
-| A judge asks something you don't know | "Great question — that's on our roadmap. Here's how I'd approach it: ..." then give a genuinely reasoned answer. Never just say "I don't know" and stop. |
-| Another team has a similar idea | "We're aware similar tools exist globally, but none target Pakistan specifically — handwritten Urdu receipts and a CNG-heavy fuel market are our localization moat." |
+- PDF export,
+- demo dataset,
+- demo mode,
+- polished empty states.
 
 ---
 
-## 12. Key Resources
+# QUEST 8 — Ask SafarSync + Voice Showcase
 
-| Resource | Link |
-|---|---|
-| Discord (schedule, deadlines, mentor help) | discord.gg/xfyUK45Ka |
-| Webinar 1 recording/page | resource.alibabacloud.com/activity/webinar/detail.html?id=LS20260009 |
-| Webinar 2 recording/page | resource.alibabacloud.com/activity/webinar/detail.html?id=LS20260010 |
-| DashScope / Qwen API docs | dashscope.aliyuncs.com/api-doc |
-| Alibaba Cloud console | alibabacloud.com |
-| Streamlit docs | docs.streamlit.io |
-| Plotly Python docs | plotly.com/python |
-| fpdf2 docs | pypi.org/project/fpdf2 |
+Only start after the entire MVP passes.
+
+Build:
+
+- question box,
+- verified context retrieval,
+- Qwen response,
+- browser voice input if feasible.
 
 ---
 
-*SafarSync AI — Qoder Build Playbook. Written for Afraz Hassan, Alibaba Cloud AI Hackathon 2026. Good luck — you have the idea, the plan, and now a build workflow matched to exactly where you're starting from. Go build it.*
+# 30. Agent Mode Debugging Rules
+
+When something breaks, use this format:
+
+```text
+Problem:
+<what happened>
+
+Expected:
+<what should happen>
+
+Observed:
+<what actually happened>
+
+Steps to reproduce:
+<exact steps>
+
+Relevant file:
+<filename>
+
+Constraints:
+<what Qoder must not change>
+```
+
+Example:
+
+> Problem: Dashboard crashes when there is only one fuel record.
+>
+> Expected: Show a friendly message that two valid odometer readings are required.
+>
+> Observed: ZeroDivisionError.
+>
+> Relevant file: analytics.py.
+>
+> Constraint: Do not modify database.py or app.py.
+
+This style produces safer changes.
+
+---
+
+# 31. QA Checklist
+
+Before calling the project “done,” test every item.
+
+## Fresh start
+
+- [ ] Delete database.
+- [ ] Run app.
+- [ ] No crash.
+- [ ] Add first vehicle.
+
+## Vehicle management
+
+- [ ] Add vehicle.
+- [ ] Switch vehicles.
+- [ ] Correct records remain separated.
+
+## Manual data
+
+- [ ] Add fuel.
+- [ ] Add maintenance.
+- [ ] Add insurance.
+- [ ] Edit values.
+- [ ] Delete a record.
+
+## OCR
+
+- [ ] Upload clear receipt.
+- [ ] Upload handwritten receipt.
+- [ ] Upload blurry receipt.
+- [ ] Verify extracted values.
+- [ ] Correct one field manually.
+- [ ] Save corrected result.
+
+## Dashboard
+
+- [ ] One record.
+- [ ] Two fuel records.
+- [ ] Many records.
+- [ ] Missing odometer.
+- [ ] No maintenance.
+- [ ] Multiple months.
+
+## Maintenance
+
+- [ ] Not due.
+- [ ] Due soon.
+- [ ] Overdue.
+- [ ] No maintenance history.
+
+## AI
+
+- [ ] Qwen vision works.
+- [ ] Qwen text works.
+- [ ] API error shows friendly message.
+- [ ] No API key appears on screen.
+- [ ] No raw traceback appears during normal use.
+
+## PDF
+
+- [ ] PDF generates.
+- [ ] PDF opens.
+- [ ] Totals are correct.
+- [ ] Empty vehicle still generates a valid report.
+
+## Voice
+
+- [ ] Browser supports microphone.
+- [ ] Text fallback works.
+- [ ] Qwen answer is based on verified data.
+
+---
+
+# 32. Free-Tier Safety Checklist
+
+Before the first serious demo:
+
+- [ ] Model Studio is in Singapore.
+- [ ] Deployment scope is International.
+- [ ] `Free Quota Only` is ON.
+- [ ] Remaining quotas are visible.
+- [ ] Correct API key is being used.
+- [ ] No Token Plan/Coding Plan key is accidentally used.
+- [ ] App has no hidden background AI calls.
+- [ ] AI calls only happen on explicit user actions.
+- [ ] Demo mode avoids unnecessary API calls.
+- [ ] AI prompts request concise outputs.
+
+Alibaba notes that free quota is consumed by real-time model invocation and that each model has separate quota. citeturn643886search1
+
+---
+
+# 33. Cost Optimization
+
+Even with free quota, act like every token matters.
+
+## Receipt OCR
+
+Call vision once per upload.
+
+Do not re-call the model every time the user edits a field.
+
+## Maintenance
+
+Calculate rule-based status locally.
+
+Call Qwen only when:
+
+- the page is opened,
+- the user asks for an explanation,
+- or the underlying data has changed.
+
+## Chat
+
+Do not send the complete database.
+
+Send only relevant verified facts.
+
+## Dashboard
+
+Charts should use Python calculations.
+
+Do not ask Qwen to generate chart numbers.
+
+---
+
+# 34. AI Prompting Rules
+
+Use prompts that are:
+
+- explicit,
+- narrow,
+- structured,
+- measurable.
+
+Avoid:
+
+> “Analyze this receipt.”
+
+Prefer:
+
+> “Extract only the fields listed below. Do not infer values that are not visible. If a field is genuinely unreadable return null. Return valid JSON only.”
+
+For reasoning:
+
+> “Use only the verified facts supplied below. Do not invent a measurement, service history, or mechanical diagnosis.”
+
+---
+
+# 35. Product Reliability Principle
+
+This is the architecture sentence you should remember:
+
+> **Python decides the numbers. Qwen explains the numbers.**
+
+That line makes the technical story much stronger.
+
+It also protects you from a judge asking:
+
+> “What if the LLM hallucinates?”
+
+Your answer:
+
+> “The model is not our accounting engine. We calculate vehicle metrics deterministically in Python, then use Qwen to explain those verified results in natural language.”
+
+---
+
+# 36. Security Principles
+
+Never:
+
+- hard-code API keys,
+- commit `.env`,
+- print keys,
+- send API keys to the browser,
+- expose secrets in screenshots,
+- put secrets into Qoder prompts.
+
+For Streamlit Community Cloud, store the key using Streamlit secrets rather than committing it to Git.
+
+---
+
+# 37. UX Polish That Makes the Project Feel Expensive
+
+The project should visually feel more like a polished product than a classroom assignment.
+
+Use:
+
+- large KPI cards,
+- consistent spacing,
+- clear section headings,
+- meaningful icons,
+- human-readable dates,
+- PKR currency formatting,
+- badges for AI confidence,
+- empty-state illustrations/messages,
+- success notifications,
+- confirmation before destructive actions.
+
+Avoid:
+
+- raw Python errors,
+- giant tables on the home screen,
+- excessive emoji,
+- tiny fonts,
+- unnecessary configuration controls.
+
+---
+
+# 38. Demo Script — 5 Minutes
+
+## 0:00–0:25 — Hook
+
+Say:
+
+> “A vehicle owner can spend hundreds of thousands of rupees over the life of a car and still have the maintenance history scattered across paper receipts, photos, and memory.”
+
+Pause.
+
+> “SafarSync turns those records into a living digital history.”
+
+---
+
+## 0:25–1:20 — Receipt Scan
+
+Show a real receipt.
+
+Upload or photograph it.
+
+Say:
+
+> “This receipt is messy. Instead of typing every number, SafarSync asks Qwen to understand it.”
+
+Show:
+
+- record type,
+- amount,
+- liters,
+- odometer,
+- vendor.
+
+Then say:
+
+> “The AI is not trusted blindly. The owner reviews every field before saving.”
+
+Click Save.
+
+---
+
+## 1:20–2:10 — Dashboard
+
+Go to dashboard.
+
+Show the record appearing in the charts.
+
+Then point to:
+
+- total spending,
+- average km/L,
+- cost/km.
+
+Say:
+
+> “Now the receipt is no longer a piece of paper. It becomes part of a structured vehicle history.”
+
+---
+
+## 2:10–3:00 — Maintenance
+
+Open Maintenance.
+
+Show:
+
+> Oil change overdue by 620 km
+
+Then show the Qwen explanation.
+
+Say:
+
+> “The maintenance status comes from deterministic rules. Qwen turns those verified numbers into plain-language advice.”
+
+---
+
+## 3:00–3:45 — Ask SafarSync
+
+Ask:
+
+> “How much did I spend on fuel this month?”
+
+Then:
+
+> “Why has my fuel efficiency dropped?”
+
+If voice works:
+
+Use the microphone.
+
+This is your strongest “wow” moment.
+
+---
+
+## 3:45–4:25 — Logbook + PDF
+
+Open Logbook.
+
+Show:
+
+- searchable records,
+- manual entries,
+- AI-scanned entries.
+
+Generate PDF.
+
+Say:
+
+> “The same data can become a portable vehicle history for resale, insurance, or personal records.”
+
+---
+
+## 4:25–5:00 — Why Alibaba + closing
+
+Say:
+
+> “SafarSync uses Alibaba Cloud Model Studio and Qwen for multimodal receipt understanding and intelligent explanations, while Qoder helped us build and test the product quickly.”
+
+Finish:
+
+> “We are not trying to make vehicle ownership smarter by adding another spreadsheet. We are removing the spreadsheet step entirely.”
+
+---
+
+# 39. Judge Questions — Strong Answers
+
+## “Isn’t this just expense tracking?”
+
+> “The differentiator is the input. Traditional expense trackers require manual typing. SafarSync starts with a photo of the real-world document and turns it into structured data, then uses the accumulated history for vehicle-specific insights.”
+
+## “What if OCR is wrong?”
+
+> “The model output is reviewed by the user before it becomes a permanent record. We also validate values in Python.”
+
+## “Why use AI?”
+
+> “The difficult part is understanding messy real-world documents and making the resulting data conversational. AI solves the unstructured-to-structured and natural-language parts. Deterministic Python handles the accounting logic.”
+
+## “Why Alibaba Cloud?”
+
+> “Alibaba Cloud gives us access to the Qwen model family through Model Studio, including multimodal models for image understanding and OpenAI-compatible APIs for straightforward integration.” citeturn193555search3turn193555search0
+
+## “How do you keep it free?”
+
+> “We designed the entire prototype around free-tier services, use Alibaba Model Studio’s eligible free quota, and enable Free Quota Only so the app stops instead of silently creating paid usage.” citeturn643886search1turn643886search0
+
+## “Why not use a database like Firebase?”
+
+> “For the hackathon prototype we intentionally kept the architecture lightweight with SQLite. That reduces infrastructure failure points and lets us focus on the user-facing AI product.”
+
+---
+
+# 40. Roadmap — What Comes After the Hackathon
+
+These are roadmap items, not excuses for unfinished MVP features.
+
+### Phase 2
+
+- cloud persistence,
+- authentication,
+- multi-device sync,
+- family vehicles,
+- fleet support,
+- richer anomaly detection.
+
+### Phase 3
+
+- mechanic verification,
+- vehicle resale reports,
+- insurance integrations,
+- WhatsApp interface,
+- service reminders,
+- location-aware service recommendations.
+
+### Phase 4
+
+- anonymized vehicle intelligence,
+- predictive maintenance models trained on real usage data,
+- fleet analytics.
+
+---
+
+# 41. Business Model
+
+## Individual users
+
+Freemium:
+
+- free basic tracking,
+- premium advanced history,
+- expanded AI insights,
+- cloud sync.
+
+## B2B
+
+Potential customers:
+
+- insurers,
+- used-car platforms,
+- service centers,
+- fleet operators.
+
+The key asset is not simply the dashboard.
+
+It is the **structured vehicle history**.
+
+---
+
+# 42. What Makes SafarSync Different
+
+Do not pitch it as:
+
+> “An AI app that tracks car expenses.”
+
+Pitch it as:
+
+> **“An AI vehicle memory for Pakistan.”**
+
+The strongest differentiators are:
+
+1. Real-world receipt capture.
+2. Human-in-the-loop verification.
+3. Vehicle-specific analytics.
+4. Maintenance intelligence.
+5. Conversational access to personal vehicle data.
+6. PDF-ready vehicle history.
+7. Pakistan-oriented workflows.
+8. A zero-cost prototype architecture.
+
+---
+
+# 43. Git Workflow
+
+After every stable module:
+
+```bash
+git add .
+git commit -m "feat: add database layer"
+```
+
+Examples:
+
+```text
+feat: add Alibaba Qwen client
+feat: add receipt OCR pipeline
+feat: add fuel analytics
+feat: add maintenance engine
+feat: add dashboard UI
+feat: add PDF vehicle logbook
+feat: add demo mode
+feat: add Ask SafarSync
+```
+
+Never keep the entire project as one giant final commit.
+
+---
+
+# 44. Final Pre-Demo Checklist
+
+## Product
+
+- [ ] All core features work.
+- [ ] Manual entry works.
+- [ ] Receipt OCR works.
+- [ ] Dashboard is populated.
+- [ ] Maintenance screen works.
+- [ ] PDF export works.
+- [ ] Ask SafarSync works if included.
+
+## AI
+
+- [ ] Qwen Character + free image/OCR pipeline works.
+- [ ] Qwen text model works.
+- [ ] Free Quota Only is enabled.
+- [ ] Remaining quota has been checked.
+
+## Security
+
+- [ ] No API key in Git.
+- [ ] No API key in screenshots.
+- [ ] No API key in Qoder messages.
+- [ ] No secret displayed in the app.
+
+## Demo
+
+- [ ] Three tested receipts.
+- [ ] Demo vehicle ready.
+- [ ] Demo data loaded.
+- [ ] Backup screen recording ready.
+- [ ] Pitch rehearsed at least three times.
+- [ ] Demo fits inside five minutes.
+
+---
+
+# 45. Emergency Plan
+
+## If Qwen API fails
+
+Use the last successful test result.
+
+Say:
+
+> “The live model service is temporarily unavailable, so I’ll show the last successful extraction.”
+
+Then continue the product flow.
+
+## If Streamlit crashes
+
+Use the backup recording.
+
+Do not debug live.
+
+## If a judge asks about an unbuilt feature
+
+Say:
+
+> “That is part of the post-hackathon roadmap. We intentionally prioritized a complete receipt-to-insight workflow rather than spreading the build across too many unfinished features.”
+
+---
+
+# 46. The One-Page Build Order
+
+When you are tired, follow only this:
+
+```text
+1. Create Git repository
+2. Create Python venv
+3. Activate Alibaba Model Studio
+4. Confirm Singapore + International
+5. Enable Free Quota Only
+6. Create API key
+7. Test Qwen Character + free image/OCR pipeline
+8. Test Qwen3.7-plus
+9. Build database
+10. Build AI client
+11. Build receipt scanner
+12. Build validation
+13. Build analytics
+14. Build maintenance logic
+15. Build AI insights
+16. Build manual entry
+17. Build Streamlit UI
+18. Build dashboard
+19. Build logbook
+20. Build PDF
+21. Seed demo data
+22. Run QA
+23. Deploy to Streamlit Community Cloud
+24. Add Ask SafarSync
+25. Add voice showcase
+26. Record backup demo
+27. Rehearse
+28. Freeze the code
+29. Win the room
+```
+
+---
+
+# 47. Final Architecture Rulebook
+
+Remember these ten rules:
+
+1. **$0 means $0.**
+2. **Free Quota Only stays ON.**
+3. **Use only the models actually allocated to your account.**
+4. **Qwen handles AI; Python handles truth.**
+5. **Never silently save model output.**
+6. **Manual entry must work without OCR.**
+7. **Every page must survive empty data.**
+8. **No stretch feature before MVP stability.**
+9. **Qoder Quest builds modules; Agent Mode fixes them.**
+10. **Demo reliability beats infrastructure complexity.**
+11. **The judge should understand the value in 30 seconds.**
+
+---
+
+# 48. Why This Version Has a Better Chance of Winning
+
+The original concept was already good.
+
+This version makes the strategy stronger because it turns SafarSync into a complete experience:
+
+```text
+UNSTRUCTURED WORLD
+paper receipt
+handwritten bill
+memory
+        ↓
+FREE OCR / IMAGE PIPELINE
+        ↓
+QWEN CHARACTER
+        ↓
+STRUCTURED DATA
+        ↓
+DETERMINISTIC ANALYTICS
+        ↓
+VEHICLE INTELLIGENCE
+        ↓
+NATURAL-LANGUAGE INSIGHTS
+        ↓
+SEARCH / CHAT / VOICE
+        ↓
+PORTABLE VEHICLE HISTORY
+```
+
+That is much more compelling than:
+
+> “We made an OCR app.”
+
+You are demonstrating a complete AI workflow:
+
+**Vision → Extraction → Validation → Data → Analytics → Reasoning → Conversation → Action**
+
+And you can build the prototype with a zero-paid-spend architecture using Qoder, Alibaba Cloud’s eligible free model quota, open-source/free Python packages, SQLite, GitHub, and free Streamlit Community Cloud deployment. Alibaba’s current documentation confirms the free-quota mechanism, OpenAI-compatible multimodal API, and free Streamlit Community Cloud deployment. citeturn643886search1turn193555search0turn193555search5
+
+---
+
+# 49. Official References
+
+- Alibaba Cloud Model Studio — Free quota for new users  
+  https://www.alibabacloud.com/help/en/model-studio/new-free-quota
+
+- Alibaba Cloud Model Studio — Model pricing and eligible free quotas  
+  https://www.alibabacloud.com/help/en/model-studio/model-pricing
+
+- Alibaba Cloud Model Studio — OpenAI-compatible API  
+  https://www.alibabacloud.com/help/en/model-studio/compatibility-of-openai-with-dashscope
+
+- Alibaba Cloud Model Studio — Qwen vision/OpenAI-compatible chat  
+  https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-chat-completions
+
+- Streamlit Community Cloud  
+  https://docs.streamlit.io/deploy/streamlit-community-cloud
+
+---
+
+# 50. Final Instruction to Qoder
+
+At the top of every major Quest prompt, use this safety header:
+
+```text
+PROJECT: SafarSync AI
+
+ROLE:
+You are implementing one module of a beginner-owned hackathon project.
+
+NON-NEGOTIABLE RULES:
+1. Do not rewrite unrelated files.
+2. Do not introduce paid services.
+3. Do not add unnecessary dependencies.
+4. Never expose secrets.
+5. Keep Alibaba Qwen integration configurable.
+6. Preserve existing interfaces unless absolutely necessary.
+7. Add type hints and clear error handling.
+8. Write beginner-friendly comments where the logic is non-obvious.
+9. Run tests or compile checks before reporting completion.
+10. If an assumption is required, make the smallest safe assumption and document it.
+
+IMPORTANT:
+Python must remain the source of truth for calculations.
+Qwen should explain or extract information, not silently replace deterministic business logic.
+```
+
+This should be treated as the operating system for the entire build.
+
+---
+
+## Closing
+
+**SafarSync AI is now scoped as a product, not a collection of features.**
+
+The winning path is not to build the most complicated system.
+
+It is to build the system that makes a judge think:
+
+> **“This is immediately useful, the AI is genuinely involved, the product is polished, and the team clearly understands what they built.”**
+
+Build the core until it is boringly reliable.
+
+Then add the wow moments.
+

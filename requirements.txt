@@ -1,0 +1,9 @@
+streamlit
+openai
+python-dotenv
+pandas
+plotly
+fpdf2
+pillow
+requests
+pytest
