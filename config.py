@@ -78,6 +78,7 @@ DASHSCOPE_API_KEY: str = get_secret("DASHSCOPE_API_KEY")
 DASHSCOPE_BASE_URL: str = get_secret("DASHSCOPE_BASE_URL")
 
 # API key for the OCR.space receipt-scanning service.
+# Optional — only required when OCR_ENGINE is set to "ocr_space".
 OCR_SPACE_API_KEY: str = get_secret("OCR_SPACE_API_KEY")
 
 
@@ -103,7 +104,7 @@ def _require_secret(name: str, value: str) -> str:
 # Validate immediately so errors surface at import time, not deep in a request.
 DASHSCOPE_API_KEY = _require_secret("DASHSCOPE_API_KEY", DASHSCOPE_API_KEY)
 DASHSCOPE_BASE_URL = _require_secret("DASHSCOPE_BASE_URL", DASHSCOPE_BASE_URL)
-OCR_SPACE_API_KEY = _require_secret("OCR_SPACE_API_KEY", OCR_SPACE_API_KEY)
+# OCR_SPACE_API_KEY is optional — validated at usage time in receipt_scanner.py.
 
 
 # ---------------------------------------------------------------------------
@@ -117,3 +118,20 @@ QWEN_PLUS_CHARACTER: str = "qwen-plus-character"
 
 # Faster, cheaper model — good for quick / lightweight tasks.
 QWEN_FLASH_CHARACTER: str = "qwen-flash-character"
+
+# ---------------------------------------------------------------------------
+# Step 7: OCR engine and vision model configuration.
+# ---------------------------------------------------------------------------
+
+# Which OCR engine to use for receipt text extraction.
+#   "ocr_space" → OCR.space cloud API  (requires OCR_SPACE_API_KEY)
+#   "qwen_vl"   → Qwen-VL via DashScope multimodal endpoint
+OCR_ENGINE: str = os.getenv("OCR_ENGINE", "ocr_space").strip().lower()
+
+# Qwen vision-language model used when OCR_ENGINE is "qwen_vl".
+QWEN_VL_MODEL: str = "qwen-vl-plus"
+
+# API protocol style for Qwen text calls.
+#   "openai" → use OpenAI-compatible system/user message separation (default)
+# Any other value falls back to a single combined user prompt.
+QWEN_API_MODE: str = os.getenv("QWEN_API_MODE", "openai").strip().lower()

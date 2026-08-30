@@ -90,7 +90,7 @@ _FUEL_RECORDS: list[dict[str, Any]] = [
      "description": "Suspiciously large fill-up", "vendor_name": "Unknown station"},
 ]
 
-# Maintenance records (6 entries — 1 specific type + 5 generic "maintenance").
+# Maintenance records (9 entries — 1 oil_change + 3 specific + 5 generic "maintenance").
 #
 # The oil_change record (odo 45 000) ensures check_due_maintenance() flags
 # oil_change as OVERDUE at the final odo of 51 500 km (6 500 km driven,
@@ -105,6 +105,18 @@ _MAINTENANCE_RECORDS: list[dict[str, Any]] = [
     {"date": "2026-02-15", "amount_pkr": 4500,  "odometer_km": 45000,
      "description": "Oil change and filter replacement",
      "vendor_name": "Toyota Downtown Lahore",  "record_type": "oil_change"},
+    # air_filter service
+    {"date": "2026-03-01", "amount_pkr": 2000, "odometer_km": 45400,
+     "description": "Air filter replacement",
+     "vendor_name": "AutoCare Multan", "record_type": "air_filter"},
+    # brake_check service
+    {"date": "2026-04-05", "amount_pkr": 3000, "odometer_km": 46500,
+     "description": "Brake inspection and pad replacement",
+     "vendor_name": "Quick Fix Islamabad", "record_type": "brake_check"},
+    # tire_rotation service
+    {"date": "2026-05-10", "amount_pkr": 1500, "odometer_km": 47800,
+     "description": "Tire rotation and alignment check",
+     "vendor_name": "Tyre Shop Faisalabad", "record_type": "tire_rotation"},
     # Generic maintenance #1 (baseline)
     {"date": "2026-03-10", "amount_pkr": 3500,  "odometer_km": 45800,
      "description": "Tire rotation and wheel balancing",
@@ -142,7 +154,7 @@ _INSURANCE_RECORD: dict[str, Any] = {
 def _demo_exists() -> bool:
     """Return ``True`` if a demo vehicle is already in the database."""
     for v in db.get_vehicles():
-        if v.get("name", "").startswith("SafarSync Demo"):
+        if v.get("name") == _DEMO_VEHICLE_NAME:
             return True
     return False
 
@@ -153,7 +165,7 @@ def _demo_exists() -> bool:
 def seed_demo_data() -> int:
     """Seed the database with one demo vehicle and its expense records.
 
-    Creates a Toyota Corolla with 11 fuel records, 6 maintenance records,
+    Creates a Toyota Corolla with 11 fuel records, 9 maintenance records,
     and 1 insurance record — all tagged with ``source="demo"``.
 
     The data is designed to exercise every analytics feature:
@@ -175,7 +187,7 @@ def seed_demo_data() -> int:
     Returns
     -------
     int
-        The number of records created (18), or ``0`` if the demo vehicle
+        The number of records created (21), or ``0`` if the demo vehicle
         already exists.
     """
     if _demo_exists():

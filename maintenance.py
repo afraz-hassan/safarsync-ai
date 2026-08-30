@@ -196,70 +196,74 @@ def get_ai_maintenance_advice(vehicle_id: int) -> str:
         A short maintenance recommendation (2-4 sentences), or a fallback
         message when the AI service is unavailable.
     """
-    # --- 1. Local maintenance status ---
-    maintenance_status: list[dict[str, Any]] = check_due_maintenance(vehicle_id)
-
-    # --- 2. Recent fuel efficiency (last 3 valid entries) ---
-    efficiency_data: list[dict[str, Any]] = analytics.calculate_fuel_efficiency(vehicle_id)
-    recent_efficiency: list[dict[str, Any]] = [
-        e for e in efficiency_data if "efficiency_km_per_l" in e
-    ][-3:]  # last 3 valid entries (chronological)
-
-    # --- 3. Build prompt with verified facts only ---
-    overdue_services: list[dict[str, Any]] = [
-        s for s in maintenance_status if s["status"] == "overdue"
-    ]
-    due_soon_services: list[dict[str, Any]] = [
-        s for s in maintenance_status if s["status"] == "due_soon"
-    ]
-
-    facts_lines: list[str] = []
-
-    if overdue_services:
-        names = ", ".join(s["type"].replace("_", " ") for s in overdue_services)
-        facts_lines.append(f"Overdue services: {names}.")
-    else:
-        facts_lines.append("No overdue services.")
-
-    if due_soon_services:
-        names = ", ".join(s["type"].replace("_", " ") for s in due_soon_services)
-        facts_lines.append(f"Services due soon: {names}.")
-    else:
-        facts_lines.append("No services due soon.")
-
-    if recent_efficiency:
-        avg_eff = sum(e["efficiency_km_per_l"] for e in recent_efficiency) / len(recent_efficiency)
-        facts_lines.append(f"Recent average fuel efficiency: {avg_eff:.1f} km/L.")
-    else:
-        facts_lines.append("No recent fuel efficiency data available.")
-
-    facts_block: str = "\n".join(facts_lines)
-
-    prompt: str = (
-        "You are a vehicle maintenance advisor for the SafarSync AI app.\n"
-        "Below are verified facts about the vehicle's maintenance status.\n"
-        "Use ONLY these facts — do NOT invent numbers or services.\n\n"
-        f"{facts_block}\n\n"
-        "Write 2-4 sentences of practical maintenance advice based on these facts."
-    )
-
-    # --- 4. Call the AI model ---
     try:
-        advice: str = ask_text(prompt, model=config.QWEN_PLUS_CHARACTER, max_tokens=200)
-        if advice:
-            return advice
-    except (PermissionError, ConnectionError, TimeoutError, RuntimeError) as exc:
-        logger.warning("AI maintenance advice failed: %s", exc)
+        # --- 1. Local maintenance status ---
+        maintenance_status: list[dict[str, Any]] = check_due_maintenance(vehicle_id)
 
-    # --- 5. Fallback response ---
-    fallback_parts: list[str] = []
-    if overdue_services:
-        names = ", ".join(s["type"].replace("_", " ") for s in overdue_services)
-        fallback_parts.append(f"Attention needed: {names} is/are overdue for service.")
-    if due_soon_services:
-        names = ", ".join(s["type"].replace("_", " ") for s in due_soon_services)
-        fallback_parts.append(f"Upcoming: {names} will be due soon.")
-    if not fallback_parts:
-        fallback_parts.append("All scheduled maintenance is up to date.")
+        # --- 2. Recent fuel efficiency (last 3 valid entries) ---
+        efficiency_data: list[dict[str, Any]] = analytics.calculate_fuel_efficiency(vehicle_id)
+        recent_efficiency: list[dict[str, Any]] = [
+            e for e in efficiency_data if "efficiency_km_per_l" in e
+        ][-3:]  # last 3 valid entries (chronological)
 
-    return " ".join(fallback_parts)
+        # --- 3. Build prompt with verified facts only ---
+        overdue_services: list[dict[str, Any]] = [
+            s for s in maintenance_status if s["status"] == "overdue"
+        ]
+        due_soon_services: list[dict[str, Any]] = [
+            s for s in maintenance_status if s["status"] == "due_soon"
+        ]
+
+        facts_lines: list[str] = []
+
+        if overdue_services:
+            names = ", ".join(s["type"].replace("_", " ") for s in overdue_services)
+            facts_lines.append(f"Overdue services: {names}.")
+        else:
+            facts_lines.append("No overdue services.")
+
+        if due_soon_services:
+            names = ", ".join(s["type"].replace("_", " ") for s in due_soon_services)
+            facts_lines.append(f"Services due soon: {names}.")
+        else:
+            facts_lines.append("No services due soon.")
+
+        if recent_efficiency:
+            avg_eff = sum(e["efficiency_km_per_l"] for e in recent_efficiency) / len(recent_efficiency)
+            facts_lines.append(f"Recent average fuel efficiency: {avg_eff:.1f} km/L.")
+        else:
+            facts_lines.append("No recent fuel efficiency data available.")
+
+        facts_block: str = "\n".join(facts_lines)
+
+        prompt: str = (
+            "You are a vehicle maintenance advisor for the SafarSync AI app.\n"
+            "Below are verified facts about the vehicle's maintenance status.\n"
+            "Use ONLY these facts — do NOT invent numbers or services.\n\n"
+            f"{facts_block}\n\n"
+            "Write 2-4 sentences of practical maintenance advice based on these facts."
+        )
+
+        # --- 4. Call the AI model ---
+        try:
+            advice: str = ask_text(prompt, model=config.QWEN_PLUS_CHARACTER, max_tokens=200)
+            if advice:
+                return advice
+        except Exception as exc:
+            logger.warning("AI maintenance advice failed: %s", exc)
+
+        # --- 5. Fallback response ---
+        fallback_parts: list[str] = []
+        if overdue_services:
+            names = ", ".join(s["type"].replace("_", " ") for s in overdue_services)
+            fallback_parts.append(f"Attention needed: {names} is/are overdue for service.")
+        if due_soon_services:
+            names = ", ".join(s["type"].replace("_", " ") for s in due_soon_services)
+            fallback_parts.append(f"Upcoming: {names} will be due soon.")
+        if not fallback_parts:
+            fallback_parts.append("All scheduled maintenance is up to date.")
+
+        return " ".join(fallback_parts)
+    except Exception:
+        logger.exception("Unexpected error in maintenance advice for vehicle %s", vehicle_id)
+        return "Unable to generate maintenance advice at this time. Please try again later."

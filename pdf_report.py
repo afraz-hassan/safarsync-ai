@@ -62,10 +62,10 @@ _VENDOR_LIMIT: int = 28
 # ---------------------------------------------------------------------------
 def _find_vehicle(vehicle_id: int) -> dict[str, Any]:
     """Return the vehicle dict for *vehicle_id*, or raise ``ValueError``."""
-    for v in db.get_vehicles():
-        if v["id"] == vehicle_id:
-            return v
-    raise ValueError(f"Vehicle with id {vehicle_id} not found.")
+    v = db.get_vehicle_by_id(vehicle_id)
+    if v is None:
+        raise ValueError(f"Vehicle with id {vehicle_id} not found.")
+    return v
 
 
 def _validate_output_path(output_path: str) -> str:
@@ -326,21 +326,26 @@ def _draw_empty_notice(pdf: _LogbookPDF) -> None:
     pdf.cell(0, 10, "No records found for this vehicle.", align="C")
 
 
+def _draw_table_header(pdf: _LogbookPDF) -> None:
+    """Draw the column-header row for the records table."""
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_fill_color(50, 50, 70)
+    pdf.set_text_color(255, 255, 255)
+    for header, width in _TABLE_COLS:
+        pdf.cell(width, _HEADER_HEIGHT, header, border=1, fill=True)
+    pdf.ln()
+
+
 def _draw_table(
     pdf: _LogbookPDF,
     records: list[dict[str, Any]],
 ) -> None:
     """Draw the records table with header and data rows."""
     # ── Table header ──────────────────────────────────────────────────
-    pdf.set_font("Helvetica", "B", 8)
-    pdf.set_fill_color(50, 50, 70)
-    pdf.set_text_color(255, 255, 255)
-
-    for header, width in _TABLE_COLS:
-        pdf.cell(width, _HEADER_HEIGHT, header, border=1, fill=True)
-    pdf.ln()
+    _draw_table_header(pdf)
 
     # ── Data rows ─────────────────────────────────────────────────────
+    col_offsets: list[float] = [sum(w for _, w in _TABLE_COLS[:i]) for i in range(len(_TABLE_COLS))]
     fill: bool = False
     for rec in records:
         row_data: list[str] = [
@@ -366,6 +371,7 @@ def _draw_table(
         # Page-break guard: start a fresh page if this row won't fit.
         if pdf.get_y() + row_h > pdf.h - 22:
             pdf.add_page()
+            _draw_table_header(pdf)
 
         # Alternating row background
         if fill:
@@ -377,7 +383,7 @@ def _draw_table(
         x_start: float = pdf.get_x()
 
         for i, (_, col_w) in enumerate(_TABLE_COLS):
-            cx: float = x_start + sum(w for _, w in _TABLE_COLS[:i])
+            cx: float = x_start + col_offsets[i]
 
             # Cell background + border
             pdf.rect(cx, y_start, col_w, row_h, style="DF")

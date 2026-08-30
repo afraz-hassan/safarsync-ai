@@ -134,7 +134,7 @@ def _detect(vehicle_id: int) -> list[dict[str, Any]]:
 
     # -- fetch records and sort chronologically (oldest first) -------------
     all_records: list[dict[str, Any]] = db.get_records(vehicle_id)
-    all_records.sort(key=lambda r: r.get("date", ""))
+    all_records.sort(key=lambda r: r.get("date") or "")
 
     fuel_records: list[dict[str, Any]] = [
         r for r in all_records if r.get("record_type") == "fuel"
@@ -276,7 +276,7 @@ def _check_fuel_efficiency(
 
             efficiency_history.append(km_per_liter)
 
-        if odometer is not None:
+        if odometer is not None and (prev_odometer is None or odometer >= prev_odometer):
             prev_odometer = odometer
 
     return anomalies

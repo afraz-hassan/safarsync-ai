@@ -72,6 +72,7 @@ def ask_text(
     prompt: str,
     model: str = config.QWEN_PLUS_CHARACTER,
     max_tokens: int = 500,
+    system_message: str | None = None,
 ) -> str:
     """
     Send a single text prompt to Alibaba Cloud Model Studio and return the
@@ -85,6 +86,10 @@ def ask_text(
         Model identifier (default: ``config.QWEN_PLUS_CHARACTER``).
     max_tokens : int, optional
         Maximum number of tokens in the response (default: 500).
+    system_message : str | None, optional
+        Optional system instruction sent as a separate system-role message.
+        When provided, the model receives ``[{system}, {user}]`` instead of
+        a single user message.
 
     Returns
     -------
@@ -105,12 +110,15 @@ def ask_text(
     """
     client: OpenAI = get_client()
 
+    messages: list[dict[str, str]] = []
+    if system_message:
+        messages.append({"role": "system", "content": system_message})
+    messages.append({"role": "user", "content": prompt})
+
     try:
         response = client.chat.completions.create(
             model=model,
-            messages=[
-                {"role": "user", "content": prompt},
-            ],
+            messages=messages,
             max_tokens=max_tokens,
         )
 

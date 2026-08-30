@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import tempfile
 from datetime import date
+from html import escape as _html_escape
 from typing import Any
 
 import streamlit as st
@@ -34,6 +35,11 @@ try:
 except RuntimeError as _exc:
     _modules_loaded = False
     _config_error = str(_exc)
+
+
+def _esc(value: Any) -> str:
+    """HTML-escape a value for safe use in unsafe_allow_html=True contexts."""
+    return _html_escape(str(value)) if value is not None else ""
 
 
 # ============================================================
@@ -419,25 +425,29 @@ def require_vehicle() -> int | None:
         </div>
         """, unsafe_allow_html=True)
         return None
+    if not any(v["id"] == vid for v in db.get_vehicles()):
+        st.session_state.pop("vehicle_id", None)
+        st.warning("Selected vehicle no longer exists. Please select another.")
+        return None
     return vid
 
 
 def _badge(rec_type: str) -> str:
     cls = f"badge-{rec_type}" if rec_type in ("fuel","maintenance","insurance") else "badge-unknown"
-    return f'<span class="badge {cls}">{rec_type}</span>'
+    return f'<span class="badge {cls}">{_esc(rec_type)}</span>'
 
 
 def _pill_severity(sev: str) -> str:
     colors = {"high":"#ef4444", "warning":"#F5A623", "info":"#00E5FF"}
     c = colors.get(sev, "#fff")
-    return f'<span style="color:{c}; border: 1px solid {c}; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;">{"⬆" if sev=="high" else "▲" if sev=="warning" else "●"} {sev}</span>'
+    return f'<span style="color:{c}; border: 1px solid {c}; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em;">{"⬆" if sev=="high" else "▲" if sev=="warning" else "●"} {_esc(sev)}</span>'
 
 
 def _page_hero(title: str, subtitle: str, icon: str = "") -> None:
     st.markdown(f"""
     <div class="page-hero fade-in">
-        <h1>{icon} {title}</h1>
-        <p>{subtitle}</p>
+        <h1>{icon} {_esc(title)}</h1>
+        <p>{_esc(subtitle)}</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -450,8 +460,8 @@ def _empty_state(icon: str, title: str, body: str) -> None:
     st.markdown(f"""
     <div class="ss-card fade-in" style="text-align:center; padding:3rem 2rem;">
         <span style="font-size:3rem;display:block;margin-bottom:1rem;">{icon}</span>
-        <div style="color:#f4f4f5;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.1rem;margin-bottom:0.5rem;">{title}</div>
-        <p style="color:#a1a1aa;font-size:0.95rem;">{body}</p>
+        <div style="color:#f4f4f5;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.1rem;margin-bottom:0.5rem;">{_esc(title)}</div>
+        <p style="color:#a1a1aa;font-size:0.95rem;">{_esc(body)}</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -573,7 +583,7 @@ def page_dashboard():
                         padding:1rem 1.5rem;margin-bottom:0.8rem;display:flex;
                         align-items:center;gap:1rem;box-shadow:0 4px 15px rgba(0,0,0,0.3);">
                 {_pill_severity(sev)}
-                <span style="color:#fafafa;font-size:0.95rem;">{a['message']}</span>
+                <span style="color:#fafafa;font-size:0.95rem;">{_esc(a['message'])}</span>
             </div>
             """, unsafe_allow_html=True)
     else:
@@ -598,7 +608,7 @@ def page_dashboard():
     if "last_insight" in st.session_state:
         st.markdown(f"""
         <div class="insight-box fade-in">
-            {st.session_state["last_insight"]}
+            {_esc(st.session_state["last_insight"])}
         </div>
         """, unsafe_allow_html=True)
 
@@ -859,7 +869,7 @@ def page_logbook():
         if rec.get("liters"):
             chips.append(f'<span style="color:#a1a1aa">{rec["liters"]:.1f} L</span>')
         if rec.get("vendor_name"):
-            chips.append(f'<span style="color:#a1a1aa">{rec["vendor_name"]}</span>')
+            chips.append(f'<span style="color:#a1a1aa">{_esc(rec["vendor_name"])}</span>')
         chips_html = ' <span style="color:#3f3f46;margin:0 8px">|</span> '.join(chips)
 
         with st.container():
@@ -868,11 +878,11 @@ def page_logbook():
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.8rem;">
                     <div style="display:flex;align-items:center;gap:1rem;">
                         {_badge(rtype)}
-                        <span style="color:#71717a;font-size:0.85rem;font-weight:600;letter-spacing:0.05em;">DATE: {rec.get('date','—')}</span>
+                        <span style="color:#71717a;font-size:0.85rem;font-weight:600;letter-spacing:0.05em;">DATE: {_esc(rec.get('date','—'))}</span>
                     </div>
                 </div>
                 <div style="font-size:0.95rem; margin-bottom:0.5rem;">{chips_html}</div>
-                {"<div style='color:#71717a;font-size:0.85rem;font-style:italic;'>" + rec['description'] + "</div>" if rec.get('description') else ""}
+                {"<div style='color:#71717a;font-size:0.85rem;font-style:italic;'>" + _esc(rec['description']) + "</div>" if rec.get('description') else ""}
             </div>
             """, unsafe_allow_html=True)
 
@@ -961,7 +971,7 @@ def page_maintenance():
                 <div class="fade-in" style="background:{bg};border:1px solid {border};border-radius:12px;
                             padding:2rem 1.5rem;text-align:center;height:100%; box-shadow:0 8px 25px rgba(0,0,0,0.4);">
                     <div style="font-size:2.2rem;margin-bottom:0.8rem;">{icon}</div>
-                    <div style="color:#ffffff;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.1rem;">{name}</div>
+                    <div style="color:#ffffff;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.1rem;">{_esc(name)}</div>
                     <div style="color:{color};font-size:0.75rem;font-weight:800;
                                 text-transform:uppercase;letter-spacing:0.1em;margin:0.8rem 0;">{s.replace('_',' ')}</div>
                     <div style="color:#a1a1aa;font-size:0.85rem;margin-bottom:0.3rem;">Last: <span style="color:#e4e4e7">{since}</span></div>
@@ -984,7 +994,7 @@ def page_maintenance():
     if "last_advice" in st.session_state:
         st.markdown(f"""
         <div class="insight-box fade-in" style="margin-top:1rem;">
-            {st.session_state["last_advice"]}
+            {_esc(st.session_state["last_advice"])}
         </div>
         """, unsafe_allow_html=True)
 
@@ -1042,7 +1052,7 @@ def page_ask():
                 <div style="background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.3);
                             border-radius:12px 0 12px 12px;padding:1rem 1.5rem;max-width:70%;
                             color:#fafafa;font-size:0.95rem;box-shadow:0 4px 15px rgba(0,0,0,0.3);">
-                    {entry['question']}
+                    {_esc(entry['question'])}
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -1053,7 +1063,7 @@ def page_ask():
                             text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.6rem;">
                     ✦ SafarSync AI Core
                 </div>
-                {entry['answer']}
+                {_esc(entry['answer'])}
             </div>
             """, unsafe_allow_html=True)
 
@@ -1076,17 +1086,17 @@ def page_ask():
         anomalies_list = anomaly.find_anomalies(vid)
 
         facts = [f"Total spending: {fmt_pkr(metrics['total_spend'])}"]
-        if metrics["fuel_spend"]:
+        if metrics["fuel_spend"] is not None:
             facts.append(f"Fuel spending: {fmt_pkr(metrics['fuel_spend'])}")
-        if metrics["maintenance_spend"]:
+        if metrics["maintenance_spend"] is not None:
             facts.append(f"Maintenance spending: {fmt_pkr(metrics['maintenance_spend'])}")
-        if metrics["insurance_spend"]:
+        if metrics["insurance_spend"] is not None:
             facts.append(f"Insurance spending: {fmt_pkr(metrics['insurance_spend'])}")
-        if metrics["total_distance"]:
+        if metrics["total_distance"] is not None:
             facts.append(f"Total distance tracked: {metrics['total_distance']:,} km")
-        if metrics["average_fuel_efficiency"]:
+        if metrics["average_fuel_efficiency"] is not None:
             facts.append(f"Average fuel efficiency: {metrics['average_fuel_efficiency']:.1f} km/L")
-        if metrics["cost_per_km"]:
+        if metrics["cost_per_km"] is not None:
             facts.append(f"Cost per km: PKR {metrics['cost_per_km']:.2f}")
 
         overdue   = [s for s in maint_status if s["status"] == "overdue"]
@@ -1147,7 +1157,7 @@ def page_ask():
                             box-shadow: 0 4px 10px rgba(0,0,0,0.2);"
                      onmouseover="this.style.borderColor='rgba(245,166,35,0.5)'; this.style.color='#f4f4f5';" 
                      onmouseout="this.style.borderColor='rgba(255,255,255,0.08)'; this.style.color='#a1a1aa';">
-                    💬 &nbsp;&nbsp;{sug}
+                    💬 &nbsp;&nbsp;{_esc(sug)}
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -1199,8 +1209,8 @@ def page_manage():
                     box-shadow:{shadow}; transition:all 0.3s;">
             <div style="font-size:2.5rem; flex-shrink:0;">{"🚘" if is_active else "🚗"}</div>
             <div style="flex:1;">
-                <div style="color:#ffffff; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1.2rem; margin-bottom:0.2rem;">{v['name']}</div>
-                <div style="color:#a1a1aa; font-size:0.85rem; letter-spacing:0.05em;">REG: <span style="color:#e4e4e7">{v.get('registration_number') or '—'}</span></div>
+                <div style="color:#ffffff; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1.2rem; margin-bottom:0.2rem;">{_esc(v['name'])}</div>
+                <div style="color:#a1a1aa; font-size:0.85rem; letter-spacing:0.05em;">REG: <span style="color:#e4e4e7">{_esc(v.get('registration_number', '')) or '—'}</span></div>
             </div>
             {"<span style='background:#F5A623;color:#050505;padding:6px 16px;border-radius:4px;font-size:0.8rem;font-weight:900;letter-spacing:0.1em;box-shadow:0 0 15px rgba(245,166,35,0.4);'>ACTIVE</span>" if is_active else ""}
         </div>
@@ -1300,7 +1310,7 @@ def main():
                 reg = current_v.get("registration_number") or "—"
                 st.markdown(f"""
                 <div class="sidebar-vehicle-pill fade-in">
-                    📋 &nbsp;{reg}
+                    📋 &nbsp;{_esc(reg)}
                 </div>
                 """, unsafe_allow_html=True)
         else:

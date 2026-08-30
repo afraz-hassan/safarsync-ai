@@ -67,15 +67,15 @@ def _build_facts(vehicle_id: int) -> tuple[str, dict[str, Any]]:
 
     # Spending
     lines.append(f"Total spending: PKR {metrics['total_spend']:,.0f}.")
-    if metrics["fuel_spend"]:
+    if metrics["fuel_spend"] is not None:
         lines.append(f"Fuel spending: PKR {metrics['fuel_spend']:,.0f}.")
-    if metrics["maintenance_spend"]:
+    if metrics["maintenance_spend"] is not None:
         lines.append(f"Maintenance spending: PKR {metrics['maintenance_spend']:,.0f}.")
-    if metrics["insurance_spend"]:
+    if metrics["insurance_spend"] is not None:
         lines.append(f"Insurance spending: PKR {metrics['insurance_spend']:,.0f}.")
 
     # Distance & efficiency
-    if metrics["total_distance"]:
+    if metrics["total_distance"] is not None:
         lines.append(f"Total distance tracked: {metrics['total_distance']:,} km.")
     if metrics["average_fuel_efficiency"] is not None:
         lines.append(
@@ -209,7 +209,7 @@ def _generate(vehicle_id: int) -> str:
         )
         if insight and insight.strip():
             return insight.strip()
-    except (PermissionError, ConnectionError, TimeoutError, RuntimeError) as exc:
+    except Exception as exc:
         logger.warning("AI insight generation failed: %s", exc)
 
     # --- Fallback: return plain facts ---

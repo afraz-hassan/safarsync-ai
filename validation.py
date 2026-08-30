@@ -174,5 +174,5 @@ def validate_receipt(data: dict) -> dict:
         "valid": valid,
         "errors": errors,
         "warnings": warnings,
-        "data": data if valid else {},
+        "data": dict(data) if valid else {},
     }

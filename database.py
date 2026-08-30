@@ -159,6 +159,18 @@ def get_vehicles() -> list[dict[str, Any]]:
         conn.close()
 
 
+def get_vehicle_by_id(vehicle_id: int) -> dict[str, Any] | None:
+    """Return a single vehicle by *id*, or ``None`` if not found."""
+    conn: sqlite3.Connection = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM vehicles WHERE id = ?", (vehicle_id,)
+        ).fetchone()
+        return _row_to_dict(row) if row else None
+    finally:
+        conn.close()
+
+
 # ---------------------------------------------------------------------------
 # Records
 # ---------------------------------------------------------------------------

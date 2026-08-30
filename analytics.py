@@ -165,7 +165,8 @@ def monthly_spending_summary(vehicle_id: int) -> list[dict[str, Any]]:
         # Extract YYYY-MM; tolerate partial dates gracefully.
         month_key: str = date_str[:7] if len(date_str) >= 7 else date_str
         record_type: str = rec.get("record_type", "unknown")
-        amount: float = rec.get("amount_pkr") or 0.0
+        _raw = rec.get("amount_pkr")
+        amount: float = _raw if _raw is not None else 0.0
 
         key = (month_key, record_type)
         groups[key]["total_amount"] += amount
