@@ -13,13 +13,29 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+import streamlit as st
+
 import database as db
+from database import get_db_version
+
+
+def _safe_cache(**kwargs):
+    """Return st.cache_data decorator only when Streamlit runtime is active."""
+    try:
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+        if get_script_run_ctx() is not None:
+            return st.cache_data(**kwargs)
+    except Exception:
+        pass
+    # No Streamlit context — return identity decorator (no caching)
+    return lambda fn: fn
 
 
 # ---------------------------------------------------------------------------
 # Fuel efficiency
 # ---------------------------------------------------------------------------
-def calculate_fuel_efficiency(vehicle_id: int) -> list[dict[str, Any]]:
+@_safe_cache(ttl=300, show_spinner=False)
+def calculate_fuel_efficiency(vehicle_id: int, db_version: int = 0) -> list[dict[str, Any]]:
     """
     Calculate per-fill fuel efficiency (km/L) for a vehicle.
 
@@ -128,7 +144,8 @@ def calculate_fuel_efficiency(vehicle_id: int) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Monthly spending summary
 # ---------------------------------------------------------------------------
-def monthly_spending_summary(vehicle_id: int) -> list[dict[str, Any]]:
+@_safe_cache(ttl=300, show_spinner=False)
+def monthly_spending_summary(vehicle_id: int, db_version: int = 0) -> list[dict[str, Any]]:
     """
     Aggregate spending by month and record type.
 
@@ -192,7 +209,8 @@ def monthly_spending_summary(vehicle_id: int) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Total cost per kilometre
 # ---------------------------------------------------------------------------
-def total_cost_per_km(vehicle_id: int) -> float | None:
+@_safe_cache(ttl=300, show_spinner=False)
+def total_cost_per_km(vehicle_id: int, db_version: int = 0) -> float | None:
     """
     Compute the overall cost per kilometre for a vehicle.
 
@@ -245,7 +263,8 @@ def total_cost_per_km(vehicle_id: int) -> float | None:
 # ---------------------------------------------------------------------------
 # Summary metrics
 # ---------------------------------------------------------------------------
-def get_summary_metrics(vehicle_id: int) -> dict[str, Any]:
+@_safe_cache(ttl=300, show_spinner=False)
+def get_summary_metrics(vehicle_id: int, db_version: int = 0) -> dict[str, Any]:
     """
     Return a high-level metrics dashboard for a vehicle.
 
@@ -270,6 +289,7 @@ def get_summary_metrics(vehicle_id: int) -> dict[str, Any]:
 
         All monetary values default to ``0.0``; distances default to ``0``.
     """
+    # Single DB call — all records for this vehicle.
     records: list[dict[str, Any]] = db.get_records(vehicle_id)
 
     total_spend: float = 0.0
@@ -297,20 +317,158 @@ def get_summary_metrics(vehicle_id: int) -> dict[str, Any]:
 
     total_distance: int = (max(odometers) - min(odometers)) if odometers else 0
 
-    # Average fuel efficiency from the per-fill calculation
-    efficiency_entries: list[dict[str, Any]] = calculate_fuel_efficiency(vehicle_id)
-    efficiencies: list[float] = [
-        e["efficiency_km_per_l"]
-        for e in efficiency_entries
-        if "efficiency_km_per_l" in e
-    ]
+    # ── Fuel efficiency (inline — same algorithm as calculate_fuel_efficiency) ─
+    fuel_recs: list[dict[str, Any]] = sorted(
+        [r for r in records if r.get("record_type") == "fuel"],
+        key=lambda r: r.get("date", ""),
+    )
+
+    efficiencies: list[float] = []
+    prev_odo: int | None = None
+
+    for rec in fuel_recs:
+        cur_odo: int | None = rec.get("odometer_km")
+        cur_liters: float | None = rec.get("liters")
+
+        if cur_odo is None:
+            continue
+        if cur_liters is None or cur_liters == 0:
+            prev_odo = cur_odo
+            continue
+        if prev_odo is None:
+            prev_odo = cur_odo
+            continue
+
+        distance: int = cur_odo - prev_odo
+        if distance <= 0:
+            prev_odo = cur_odo
+            continue
+
+        efficiencies.append(round(distance / cur_liters, 2))
+        prev_odo = cur_odo
+
     average_fuel_efficiency: float | None = (
         round(sum(efficiencies) / len(efficiencies), 2)
         if efficiencies
         else None
     )
 
-    cost_per_km: float | None = total_cost_per_km(vehicle_id)
+    # ── Cost per km (inline — same algorithm as total_cost_per_km) ──────────
+    cost_per_km: float | None = (
+        round(total_spend / total_distance, 2) if total_distance > 0 else None
+    )
+    if cost_per_km is None and total_spend == 0.0 and total_distance > 0:
+        cost_per_km = 0.0
+
+    return {
+        "total_spend": round(total_spend, 2),
+        "fuel_spend": round(fuel_spend, 2),
+        "maintenance_spend": round(maintenance_spend, 2),
+        "insurance_spend": round(insurance_spend, 2),
+        "average_fuel_efficiency": average_fuel_efficiency,
+        "total_distance": total_distance,
+        "cost_per_km": cost_per_km,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Summary metrics from a pre-filtered record list
+# ---------------------------------------------------------------------------
+def get_summary_metrics_for_records(
+    records: list[dict[str, Any]],
+    vehicle_id: int,
+) -> dict[str, Any]:
+    """
+    Compute summary metrics from a pre-filtered record list.
+
+    Mirrors the output structure of :func:`get_summary_metrics` but operates
+    entirely on the passed-in *records* list — no additional DB queries are
+    issued (fuel-efficiency is computed inline from the same list).
+
+    Parameters
+    ----------
+    records : list[dict]
+        Pre-filtered records in the same dict format returned by
+        ``db.get_records()``.  May be in any order; the function sorts
+        chronologically internally where needed.
+    vehicle_id : int
+        Vehicle id — kept for API symmetry with :func:`get_summary_metrics`.
+
+    Returns
+    -------
+    dict
+        Same keys as :func:`get_summary_metrics`:
+        ``total_spend``, ``fuel_spend``, ``maintenance_spend``,
+        ``insurance_spend``, ``average_fuel_efficiency``,
+        ``total_distance``, ``cost_per_km``.
+    """
+    total_spend: float = 0.0
+    fuel_spend: float = 0.0
+    maintenance_spend: float = 0.0
+    insurance_spend: float = 0.0
+
+    odometers: list[int] = []
+
+    for rec in records:
+        amount: float = rec.get("amount_pkr") or 0.0
+        total_spend += amount
+
+        rtype: str = rec.get("record_type", "")
+        if rtype == "fuel":
+            fuel_spend += amount
+        elif rtype == "maintenance":
+            maintenance_spend += amount
+        elif rtype == "insurance":
+            insurance_spend += amount
+
+        odo: int | None = rec.get("odometer_km")
+        if odo is not None:
+            odometers.append(odo)
+
+    total_distance: int = (max(odometers) - min(odometers)) if odometers else 0
+
+    # ── Fuel efficiency (inline, same algorithm as calculate_fuel_efficiency) ─
+    fuel_recs: list[dict[str, Any]] = sorted(
+        [r for r in records if r.get("record_type") == "fuel"],
+        key=lambda r: r.get("date", ""),
+    )
+
+    efficiencies: list[float] = []
+    prev_odo: int | None = None
+
+    for rec in fuel_recs:
+        cur_odo: int | None = rec.get("odometer_km")
+        cur_liters: float | None = rec.get("liters")
+
+        if cur_odo is None:
+            continue
+        if cur_liters is None or cur_liters == 0:
+            prev_odo = cur_odo
+            continue
+        if prev_odo is None:
+            prev_odo = cur_odo
+            continue
+
+        distance: int = cur_odo - prev_odo
+        if distance <= 0:
+            prev_odo = cur_odo
+            continue
+
+        efficiencies.append(round(distance / cur_liters, 2))
+        prev_odo = cur_odo
+
+    average_fuel_efficiency: float | None = (
+        round(sum(efficiencies) / len(efficiencies), 2)
+        if efficiencies
+        else None
+    )
+
+    # ── Cost per km ───────────────────────────────────────────────────────────
+    cost_per_km: float | None = (
+        round(total_spend / total_distance, 2) if total_distance > 0 else None
+    )
+    if cost_per_km is None and total_spend == 0.0 and total_distance > 0:
+        cost_per_km = 0.0
 
     return {
         "total_spend": round(total_spend, 2),

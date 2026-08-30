@@ -19,10 +19,33 @@ Usage example::
 
 from __future__ import annotations
 
+import logging
 import os
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Generator
+
+import streamlit as st
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Cache-busting helpers — bump a session-state counter after every write so
+# that @st.cache_data-decorated readers invalidate automatically.
+# ---------------------------------------------------------------------------
+def _bump_db_version():
+    """Increment DB version counter to invalidate cached results."""
+    if hasattr(st, "session_state"):
+        st.session_state["_db_version"] = st.session_state.get("_db_version", 0) + 1
+
+
+def get_db_version() -> int:
+    """Return current DB version for cache keying."""
+    if hasattr(st, "session_state"):
+        return st.session_state.get("_db_version", 0)
+    return 0
 
 # ---------------------------------------------------------------------------
 # Database file path — lives next to this script.
@@ -48,6 +71,20 @@ def _get_connection() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
+
+
+@contextmanager
+def _connection() -> Generator[sqlite3.Connection, None, None]:
+    """Context manager that opens, commits/rolls-back, and closes a connection."""
+    conn: sqlite3.Connection = _get_connection()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def _row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
@@ -78,8 +115,7 @@ def init_db() -> None:
     The foreign key ``records.vehicle_id → vehicles.id`` is enforced via
     ``PRAGMA foreign_keys = ON`` set in every connection.
     """
-    conn: sqlite3.Connection = _get_connection()
-    try:
+    with _connection() as conn:
         conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS vehicles (
@@ -107,15 +143,45 @@ def init_db() -> None:
             );
             """
         )
-        conn.commit()
-    finally:
-        conn.close()
+
+        # Migration: add metadata column to records if missing
+        cur = conn.execute("PRAGMA table_info(records)")
+        columns = {row[1] for row in cur.fetchall()}
+        if "metadata" not in columns:
+            conn.execute("ALTER TABLE records ADD COLUMN metadata TEXT")
+            logger.warning("Migration applied: added 'metadata' column to records table.")
+
+        # Migration: add onboarding columns to vehicles if missing
+        cur = conn.execute("PRAGMA table_info(vehicles)")
+        columns = {row[1] for row in cur.fetchall()}
+        for col, col_type in [("make", "TEXT"), ("model", "TEXT"), ("year", "INTEGER"), ("initial_mileage", "INTEGER")]:
+            if col not in columns:
+                conn.execute(f"ALTER TABLE vehicles ADD COLUMN {col} {col_type}")
+                logger.warning("Migration applied: added '%s' column to vehicles table.", col)
+
+        # Indexes for common query patterns
+        conn.executescript(
+            """
+            CREATE INDEX IF NOT EXISTS idx_records_vehicle_id ON records(vehicle_id);
+            CREATE INDEX IF NOT EXISTS idx_records_vehicle_date ON records(vehicle_id, date DESC);
+            CREATE INDEX IF NOT EXISTS idx_records_vehicle_type ON records(vehicle_id, record_type);
+            """
+        )
+
+    logger.info("Database initialized")
 
 
 # ---------------------------------------------------------------------------
 # Vehicles
 # ---------------------------------------------------------------------------
-def add_vehicle(name: str, registration_number: str = "") -> int:
+def add_vehicle(
+    name: str,
+    registration_number: str = "",
+    make: str | None = None,
+    model: str | None = None,
+    year: int | None = None,
+    initial_mileage: int | None = None,
+) -> int:
     """
     Insert a new vehicle and return its auto-generated ``id``.
 
@@ -125,22 +191,30 @@ def add_vehicle(name: str, registration_number: str = "") -> int:
         Human-readable vehicle name (e.g. "My Corolla").
     registration_number : str, optional
         License / registration plate (default: empty string).
+    make, model : str or None, optional
+        Vehicle manufacturer and model name.
+    year : int or None, optional
+        Manufacturing year.
+    initial_mileage : int or None, optional
+        Odometer reading at the time of onboarding.
 
     Returns
     -------
     int
         The ``id`` of the newly created vehicle row.
     """
-    conn: sqlite3.Connection = _get_connection()
-    try:
+    with _connection() as conn:
         cursor = conn.execute(
-            "INSERT INTO vehicles (name, registration_number, created_at) VALUES (?, ?, ?)",
-            (name, registration_number, _utcnow()),
+            """
+            INSERT INTO vehicles
+                (name, registration_number, created_at, make, model, year, initial_mileage)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (name, registration_number, _utcnow(), make, model, year, initial_mileage),
         )
-        conn.commit()
-        return cursor.lastrowid  # type: ignore[return-value]
-    finally:
-        conn.close()
+        new_id = cursor.lastrowid
+    _bump_db_version()
+    return new_id  # type: ignore[return-value]
 
 
 def get_vehicles() -> list[dict[str, Any]]:
@@ -149,26 +223,20 @@ def get_vehicles() -> list[dict[str, Any]]:
 
     Returns an empty list when the database has no vehicles yet.
     """
-    conn: sqlite3.Connection = _get_connection()
-    try:
+    with _connection() as conn:
         rows = conn.execute(
             "SELECT * FROM vehicles ORDER BY created_at DESC"
         ).fetchall()
         return _rows_to_list(rows)
-    finally:
-        conn.close()
 
 
 def get_vehicle_by_id(vehicle_id: int) -> dict[str, Any] | None:
     """Return a single vehicle by *id*, or ``None`` if not found."""
-    conn: sqlite3.Connection = _get_connection()
-    try:
+    with _connection() as conn:
         row = conn.execute(
             "SELECT * FROM vehicles WHERE id = ?", (vehicle_id,)
         ).fetchone()
         return _row_to_dict(row) if row else None
-    finally:
-        conn.close()
 
 
 # ---------------------------------------------------------------------------
@@ -186,6 +254,7 @@ def add_record(
     source: str | None = None,
     confidence: str | None = None,
     raw_ocr_json: str | None = None,
+    metadata: str | None = None,
 ) -> int:
     """
     Insert a new expense / maintenance record and return its ``id``.
@@ -199,7 +268,7 @@ def add_record(
     date : str
         Date string (ISO-8601 recommended: "2026-08-29").
     amount_pkr, liters, odometer_km, description, vendor_name,
-    source, confidence, raw_ocr_json : optional
+    source, confidence, raw_ocr_json, metadata : optional
         Additional columns — pass ``None`` or omit for unused fields.
 
     Returns
@@ -207,14 +276,13 @@ def add_record(
     int
         The ``id`` of the newly created record row.
     """
-    conn: sqlite3.Connection = _get_connection()
-    try:
+    with _connection() as conn:
         cursor = conn.execute(
             """
             INSERT INTO records
                 (vehicle_id, record_type, date, amount_pkr, liters, odometer_km,
-                 description, vendor_name, source, confidence, raw_ocr_json, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 description, vendor_name, source, confidence, raw_ocr_json, metadata, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 vehicle_id,
@@ -228,21 +296,23 @@ def add_record(
                 source,
                 confidence,
                 raw_ocr_json,
+                metadata,
                 _utcnow(),
             ),
         )
-        conn.commit()
-        return cursor.lastrowid  # type: ignore[return-value]
-    finally:
-        conn.close()
+        new_id = cursor.lastrowid
+    _bump_db_version()
+    return new_id  # type: ignore[return-value]
 
 
 def get_records(
     vehicle_id: int,
     record_type: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Return records for a vehicle, optionally filtered by type.
+    Return records for a vehicle, optionally filtered by type and date range.
 
     Parameters
     ----------
@@ -250,27 +320,35 @@ def get_records(
         The vehicle whose records to fetch.
     record_type : str or None, optional
         If given, only records matching this type are returned.
+    start_date : str or None, optional
+        If given, only records on or after this date are returned.
+    end_date : str or None, optional
+        If given, only records on or before this date are returned.
 
     Returns
     -------
     list[dict]
         Matching rows (newest first).  Empty list if none found.
     """
-    conn: sqlite3.Connection = _get_connection()
-    try:
-        if record_type is not None:
-            rows = conn.execute(
-                "SELECT * FROM records WHERE vehicle_id = ? AND record_type = ? ORDER BY date DESC",
-                (vehicle_id, record_type),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM records WHERE vehicle_id = ? ORDER BY date DESC",
-                (vehicle_id,),
-            ).fetchall()
+    conditions: list[str] = ["vehicle_id = ?"]
+    params: list[Any] = [vehicle_id]
+
+    if record_type is not None:
+        conditions.append("record_type = ?")
+        params.append(record_type)
+    if start_date is not None:
+        conditions.append("date >= ?")
+        params.append(start_date)
+    if end_date is not None:
+        conditions.append("date <= ?")
+        params.append(end_date)
+
+    where_clause = " AND ".join(conditions)
+    query = f"SELECT * FROM records WHERE {where_clause} ORDER BY date DESC"
+
+    with _connection() as conn:
+        rows = conn.execute(query, params).fetchall()
         return _rows_to_list(rows)
-    finally:
-        conn.close()
 
 
 def get_record_by_id(record_id: int) -> dict[str, Any] | None:
@@ -279,14 +357,11 @@ def get_record_by_id(record_id: int) -> dict[str, Any] | None:
 
     Returns ``None`` if no row with that ``id`` exists.
     """
-    conn: sqlite3.Connection = _get_connection()
-    try:
+    with _connection() as conn:
         row = conn.execute(
             "SELECT * FROM records WHERE id = ?", (record_id,)
         ).fetchone()
         return _row_to_dict(row)
-    finally:
-        conn.close()
 
 
 def update_record(record_id: int, **kwargs: Any) -> bool:
@@ -298,7 +373,7 @@ def update_record(record_id: int, **kwargs: Any) -> bool:
 
     Allowed keyword arguments: ``record_type``, ``date``, ``amount_pkr``,
     ``liters``, ``odometer_km``, ``description``, ``vendor_name``,
-    ``source``, ``confidence``, ``raw_ocr_json``.
+    ``source``, ``confidence``, ``raw_ocr_json``, ``metadata``.
 
     Returns
     -------
@@ -314,6 +389,7 @@ def update_record(record_id: int, **kwargs: Any) -> bool:
     allowed: set[str] = {
         "record_type", "date", "amount_pkr", "liters", "odometer_km",
         "description", "vendor_name", "source", "confidence", "raw_ocr_json",
+        "metadata",
     }
 
     # Filter to only allowed keys; reject unknown ones.
@@ -327,16 +403,15 @@ def update_record(record_id: int, **kwargs: Any) -> bool:
     set_clause: str = ", ".join(f"{col} = ?" for col in updates)
     values: list[Any] = list(updates.values()) + [record_id]
 
-    conn: sqlite3.Connection = _get_connection()
-    try:
+    with _connection() as conn:
         cursor = conn.execute(
             f"UPDATE records SET {set_clause} WHERE id = ?",  # noqa: S608
             values,
         )
-        conn.commit()
-        return cursor.rowcount > 0
-    finally:
-        conn.close()
+        updated = cursor.rowcount > 0
+    if updated:
+        _bump_db_version()
+    return updated
 
 
 def delete_record(record_id: int) -> bool:
@@ -345,13 +420,12 @@ def delete_record(record_id: int) -> bool:
 
     Returns ``True`` if a row was deleted, ``False`` if it didn't exist.
     """
-    conn: sqlite3.Connection = _get_connection()
-    try:
+    with _connection() as conn:
         cursor = conn.execute("DELETE FROM records WHERE id = ?", (record_id,))
-        conn.commit()
-        return cursor.rowcount > 0
-    finally:
-        conn.close()
+        deleted = cursor.rowcount > 0
+    if deleted:
+        _bump_db_version()
+    return deleted
 
 
 # ---------------------------------------------------------------------------

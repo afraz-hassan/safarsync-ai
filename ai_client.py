@@ -110,6 +110,8 @@ def ask_text(
     """
     client: OpenAI = get_client()
 
+    logger.info("AI request: model=%s, tokens=%d", model, max_tokens)
+
     messages: list[dict[str, str]] = []
     if system_message:
         messages.append({"role": "system", "content": system_message})

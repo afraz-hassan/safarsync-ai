@@ -409,3 +409,217 @@ class TestConnections:
         # Connection should still be usable for a fresh operation.
         vid = database.add_vehicle("Recovery Car")
         assert vid > 0
+
+
+# ---------------------------------------------------------------------------
+# 18. Metadata column (records)
+# ---------------------------------------------------------------------------
+class TestMetadataColumn:
+    """CRUD operations for the ``metadata`` TEXT column on ``records``."""
+
+    @pytest.fixture()
+    def vid(self) -> int:
+        return database.add_vehicle("Metadata Car")
+
+    def test_add_record_with_metadata(self, vid: int) -> None:
+        """Metadata JSON string is stored and retrieved verbatim."""
+        meta = '{"garage_name": "Ali Motors"}'
+        rid = database.add_record(
+            vid, "maintenance", "2026-08-01",
+            amount_pkr=12000, metadata=meta,
+        )
+        row = database.get_record_by_id(rid)
+        assert row is not None
+        assert row["metadata"] == meta
+
+    def test_add_record_metadata_default_none(self, vid: int) -> None:
+        """Backward compatibility: omitting metadata stores NULL."""
+        rid = database.add_record(vid, "fuel", "2026-08-01", amount_pkr=5000)
+        row = database.get_record_by_id(rid)
+        assert row is not None
+        assert row["metadata"] is None
+
+    def test_update_record_metadata(self, vid: int) -> None:
+        """update_record can change the metadata field."""
+        rid = database.add_record(vid, "fuel", "2026-08-01", amount_pkr=3000)
+        new_meta = '{"garage_name": "New Garage", "rating": 5}'
+        ok = database.update_record(rid, metadata=new_meta)
+        assert ok is True
+        row = database.get_record_by_id(rid)
+        assert row is not None
+        assert row["metadata"] == new_meta
+
+    def test_metadata_in_get_records(self, vid: int) -> None:
+        """get_records returns the metadata column."""
+        meta = '{"source_app": "safarsync"}'
+        database.add_record(
+            vid, "fuel", "2026-08-01",
+            amount_pkr=4000, metadata=meta,
+        )
+        records = database.get_records(vid)
+        assert len(records) == 1
+        assert records[0]["metadata"] == meta
+
+    def test_metadata_in_get_record_by_id(self, vid: int) -> None:
+        """get_record_by_id returns the metadata column."""
+        meta = '{"inspector": "Ahmed"}'
+        rid = database.add_record(
+            vid, "insurance", "2026-01-01",
+            amount_pkr=50000, metadata=meta,
+        )
+        row = database.get_record_by_id(rid)
+        assert row is not None
+        assert row["metadata"] == meta
+
+
+# ---------------------------------------------------------------------------
+# 19. Vehicle extended fields (make / model / year / initial_mileage)
+# ---------------------------------------------------------------------------
+class TestVehicleExtendedFields:
+    """New onboarding columns on the ``vehicles`` table."""
+
+    def test_add_vehicle_all_extended_fields(self) -> None:
+        """All four extended fields are stored and retrieved correctly."""
+        vid = database.add_vehicle(
+            "My Corolla", "REG-2022",
+            make="Toyota", model="Corolla", year=2022, initial_mileage=42000,
+        )
+        vehicle = database.get_vehicle_by_id(vid)
+        assert vehicle is not None
+        assert vehicle["make"] == "Toyota"
+        assert vehicle["model"] == "Corolla"
+        assert vehicle["year"] == 2022
+        assert vehicle["initial_mileage"] == 42000
+
+    def test_add_vehicle_no_extended_fields(self) -> None:
+        """Backward compatibility: omitting extended fields stores NULL."""
+        vid = database.add_vehicle("Basic Car", "REG-001")
+        vehicle = database.get_vehicle_by_id(vid)
+        assert vehicle is not None
+        assert vehicle["make"] is None
+        assert vehicle["model"] is None
+        assert vehicle["year"] is None
+        assert vehicle["initial_mileage"] is None
+
+    def test_get_vehicles_returns_extended_fields(self) -> None:
+        """get_vehicles includes the extended columns in its dicts."""
+        database.add_vehicle(
+            "Civic", "REG-CIVIC",
+            make="Honda", model="Civic", year=2023, initial_mileage=10000,
+        )
+        vehicles = database.get_vehicles()
+        assert len(vehicles) == 1
+        v = vehicles[0]
+        assert v["make"] == "Honda"
+        assert v["model"] == "Civic"
+        assert v["year"] == 2023
+        assert v["initial_mileage"] == 10000
+
+    def test_get_vehicle_by_id_returns_extended_fields(self) -> None:
+        """get_vehicle_by_id includes the extended columns."""
+        vid = database.add_vehicle(
+            "Yaris", "REG-YRS",
+            make="Toyota", model="Yaris", year=2021, initial_mileage=55000,
+        )
+        vehicle = database.get_vehicle_by_id(vid)
+        assert vehicle is not None
+        assert vehicle["make"] == "Toyota"
+        assert vehicle["model"] == "Yaris"
+        assert vehicle["year"] == 2021
+        assert vehicle["initial_mileage"] == 55000
+
+    def test_partial_extended_fields(self) -> None:
+        """Only some extended fields provided; others remain NULL."""
+        vid = database.add_vehicle(
+            "Partial Car", "REG-PART",
+            make="Suzuki", model="Alto",
+        )
+        vehicle = database.get_vehicle_by_id(vid)
+        assert vehicle is not None
+        assert vehicle["make"] == "Suzuki"
+        assert vehicle["model"] == "Alto"
+        assert vehicle["year"] is None
+        assert vehicle["initial_mileage"] is None
+
+
+# ---------------------------------------------------------------------------
+# 20. Date-range filtering on get_records
+# ---------------------------------------------------------------------------
+class TestDateRangeFiltering:
+    """start_date / end_date parameters on ``get_records``."""
+
+    @pytest.fixture()
+    def vid_with_dates(self) -> int:
+        """Create a vehicle with records spread across four dates."""
+        vid = database.add_vehicle("Date Car")
+        database.add_record(vid, "fuel", "2026-01-15", amount_pkr=3000)
+        database.add_record(vid, "fuel", "2026-03-20", amount_pkr=4000)
+        database.add_record(vid, "maintenance", "2026-06-10", amount_pkr=8000)
+        database.add_record(vid, "fuel", "2026-08-25", amount_pkr=5000)
+        return vid
+
+    def test_start_date_excludes_earlier(self, vid_with_dates: int) -> None:
+        """start_date should exclude records before that date."""
+        records = database.get_records(vid_with_dates, start_date="2026-03-01")
+        dates = {r["date"] for r in records}
+        assert "2026-01-15" not in dates
+        assert dates == {"2026-03-20", "2026-06-10", "2026-08-25"}
+
+    def test_end_date_excludes_later(self, vid_with_dates: int) -> None:
+        """end_date should exclude records after that date."""
+        records = database.get_records(vid_with_dates, end_date="2026-06-30")
+        dates = {r["date"] for r in records}
+        assert "2026-08-25" not in dates
+        assert dates == {"2026-01-15", "2026-03-20", "2026-06-10"}
+
+    def test_start_and_end_date(self, vid_with_dates: int) -> None:
+        """Both bounds together return only records within the window."""
+        records = database.get_records(
+            vid_with_dates, start_date="2026-03-01", end_date="2026-06-30",
+        )
+        dates = {r["date"] for r in records}
+        assert dates == {"2026-03-20", "2026-06-10"}
+
+    def test_no_date_params_returns_all(self, vid_with_dates: int) -> None:
+        """Backward compatibility: no date params returns every record."""
+        records = database.get_records(vid_with_dates)
+        assert len(records) == 4
+
+    def test_record_type_with_date_range(self, vid_with_dates: int) -> None:
+        """record_type and date range combined filter correctly."""
+        records = database.get_records(
+            vid_with_dates,
+            record_type="fuel",
+            start_date="2026-03-01",
+            end_date="2026-08-31",
+        )
+        dates = {r["date"] for r in records}
+        # June record is maintenance, not fuel — excluded by type filter.
+        assert dates == {"2026-03-20", "2026-08-25"}
+        assert all(r["record_type"] == "fuel" for r in records)
+
+
+# ---------------------------------------------------------------------------
+# 21. Indexes exist after init_db
+# ---------------------------------------------------------------------------
+class TestIndexesExist:
+    """Verify that the three performance indexes are created."""
+
+    EXPECTED_INDEXES: set[str] = {
+        "idx_records_vehicle_id",
+        "idx_records_vehicle_date",
+        "idx_records_vehicle_type",
+    }
+
+    def test_indexes_created(self) -> None:
+        """All three expected indexes must exist after init_db()."""
+        conn = sqlite3.connect(database.DB_PATH)
+        try:
+            rows = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='index'"
+            ).fetchall()
+            index_names: set[str] = {row[0] for row in rows}
+        finally:
+            conn.close()
+        missing = self.EXPECTED_INDEXES - index_names
+        assert not missing, f"Missing indexes: {missing}"

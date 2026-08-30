@@ -26,6 +26,7 @@ import anomaly
 import config
 import maintenance
 from ai_client import ask_text
+from database import get_db_version
 
 # ---------------------------------------------------------------------------
 # Module-level logger
@@ -53,14 +54,22 @@ def _build_facts(vehicle_id: int) -> tuple[str, dict[str, Any]]:
         * A multi-line string of human-readable facts ready for the prompt.
         * A dict of the raw data used to build it (for the fallback path).
     """
+    db_version: int = get_db_version()
+
     # --- 1. Summary metrics ---
-    metrics: dict[str, Any] = analytics.get_summary_metrics(vehicle_id)
+    metrics: dict[str, Any] = analytics.get_summary_metrics(
+        vehicle_id, db_version=db_version
+    )
 
     # --- 2. Maintenance status ---
-    maint_status: list[dict[str, Any]] = maintenance.check_due_maintenance(vehicle_id)
+    maint_status: list[dict[str, Any]] = maintenance.check_due_maintenance(
+        vehicle_id, db_version=db_version
+    )
 
     # --- 3. Anomalies ---
-    anomalies_list: list[dict[str, Any]] = anomaly.find_anomalies(vehicle_id)
+    anomalies_list: list[dict[str, Any]] = anomaly.find_anomalies(
+        vehicle_id, db_version=db_version
+    )
 
     # --- Compose fact lines ---
     lines: list[str] = []

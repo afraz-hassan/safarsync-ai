@@ -28,6 +28,7 @@ Public API::
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -55,39 +56,50 @@ _DEMO_REGISTRATION: str = "DEMO-2026"
 _FUEL_RECORDS: list[dict[str, Any]] = [
     #  1  baseline
     {"date": "2026-02-10", "amount_pkr": 9500,  "liters": 35.2, "odometer_km": 45000,
-     "description": "Petrol fill-up",         "vendor_name": "PSO Faisalabad"},
+     "description": "Petrol fill-up",         "vendor_name": "PSO Faisalabad",
+     "metadata": json.dumps({"station_name": "PSO Clifton"})},
     #  2  550 km / 40 L = 13.75 km/L
     {"date": "2026-02-25", "amount_pkr": 10800, "liters": 40.0, "odometer_km": 45550,
-     "description": "Full tank",              "vendor_name": "Shell Lahore"},
+     "description": "Full tank",              "vendor_name": "Shell Lahore",
+     "metadata": json.dumps({"station_name": "Shell Gulberg"})},
     #  3  500 km / 38 L = 13.16 km/L
     {"date": "2026-03-12", "amount_pkr": 10260, "liters": 38.0, "odometer_km": 46050,
-     "description": "Petrol fill-up",         "vendor_name": "Total Multan"},
+     "description": "Petrol fill-up",         "vendor_name": "Total Multan",
+     "metadata": json.dumps({"station_name": "Total Bosan Road"})},
     #  4  480 km / 37 L = 12.97 km/L
     {"date": "2026-03-28", "amount_pkr": 9990,  "liters": 37.0, "odometer_km": 46530,
-     "description": "Weekly fill",            "vendor_name": "PSO Islamabad"},
+     "description": "Weekly fill",            "vendor_name": "PSO Islamabad",
+     "metadata": json.dumps({"station_name": "PSO Blue Area"})},
     #  5  520 km / 40 L = 13.00 km/L
     {"date": "2026-04-14", "amount_pkr": 10800, "liters": 40.0, "odometer_km": 47050,
-     "description": "Full tank",              "vendor_name": "Shell Rawalpindi"},
+     "description": "Full tank",              "vendor_name": "Shell Rawalpindi",
+     "metadata": json.dumps({"station_name": "Shell Satellite Town"})},
     #  6  550 km / 42 L = 13.10 km/L
     {"date": "2026-04-30", "amount_pkr": 11340, "liters": 42.0, "odometer_km": 47600,
-     "description": "Petrol fill-up",         "vendor_name": "Attock Karachi"},
+     "description": "Petrol fill-up",         "vendor_name": "Attock Karachi",
+     "metadata": json.dumps({"station_name": "Attock SITE"})},
     #  7  500 km / 38 L = 13.16 km/L
     {"date": "2026-05-15", "amount_pkr": 10260, "liters": 38.0, "odometer_km": 48100,
-     "description": "Regular fill",           "vendor_name": "PSO Hyderabad"},
+     "description": "Regular fill",           "vendor_name": "PSO Hyderabad",
+     "metadata": json.dumps({"station_name": "PSO Latifabad"})},
     #  8  530 km / 41 L = 12.93 km/L
     {"date": "2026-06-01", "amount_pkr": 11070, "liters": 41.0, "odometer_km": 48630,
-     "description": "Full tank",              "vendor_name": "Total Sukkur"},
+     "description": "Full tank",              "vendor_name": "Total Sukkur",
+     "metadata": json.dumps({"station_name": "Total Shikarpur Road"})},
     #  9  500 km / 39 L = 12.82 km/L
     {"date": "2026-06-18", "amount_pkr": 10530, "liters": 39.0, "odometer_km": 49130,
-     "description": "Petrol",                 "vendor_name": "Shell Quetta"},
+     "description": "Petrol",                 "vendor_name": "Shell Quetta",
+     "metadata": json.dumps({"station_name": "Shell Jinnah Road"})},
     # 10  500 km / 38 L = 13.16 km/L
     {"date": "2026-07-05", "amount_pkr": 10260, "liters": 38.0, "odometer_km": 49630,
-     "description": "Highway fill-up",        "vendor_name": "PSO Peshawar"},
+     "description": "Highway fill-up",        "vendor_name": "PSO Peshawar",
+     "metadata": json.dumps({"station_name": "PSO University Road"})},
     # 11  ANOMALY: 400 km / 50 L = 8.00 km/L  (sharp efficiency decline)
     #     amount 16 000 > 1.5× avg (~10 445) → fuel_amount anomaly
     #     liters 50    > 1.5× avg (~37.7)    → fuel_liters anomaly
     {"date": "2026-07-25", "amount_pkr": 16000, "liters": 50.0, "odometer_km": 50030,
-     "description": "Suspiciously large fill-up", "vendor_name": "Unknown station"},
+     "description": "Suspiciously large fill-up", "vendor_name": "Unknown station",
+     "metadata": json.dumps({"station_name": "Roadside pump"})},
 ]
 
 # Maintenance records (9 entries — 1 oil_change + 3 specific + 5 generic "maintenance").
@@ -104,39 +116,48 @@ _MAINTENANCE_RECORDS: list[dict[str, Any]] = [
     # oil_change → triggers overdue in check_due_maintenance
     {"date": "2026-02-15", "amount_pkr": 4500,  "odometer_km": 45000,
      "description": "Oil change and filter replacement",
-     "vendor_name": "Toyota Downtown Lahore",  "record_type": "oil_change"},
+     "vendor_name": "Toyota Downtown Lahore",  "record_type": "oil_change",
+     "metadata": json.dumps({"garage_name": "Ali Auto Workshop"})},
     # air_filter service
     {"date": "2026-03-01", "amount_pkr": 2000, "odometer_km": 45400,
      "description": "Air filter replacement",
-     "vendor_name": "AutoCare Multan", "record_type": "air_filter"},
+     "vendor_name": "AutoCare Multan", "record_type": "air_filter",
+     "metadata": json.dumps({"garage_name": "Ali Auto Workshop"})},
     # brake_check service
     {"date": "2026-04-05", "amount_pkr": 3000, "odometer_km": 46500,
      "description": "Brake inspection and pad replacement",
-     "vendor_name": "Quick Fix Islamabad", "record_type": "brake_check"},
+     "vendor_name": "Quick Fix Islamabad", "record_type": "brake_check",
+     "metadata": json.dumps({"garage_name": "Quick Fix Workshop"})},
     # tire_rotation service
     {"date": "2026-05-10", "amount_pkr": 1500, "odometer_km": 47800,
      "description": "Tire rotation and alignment check",
-     "vendor_name": "Tyre Shop Faisalabad", "record_type": "tire_rotation"},
+     "vendor_name": "Tyre Shop Faisalabad", "record_type": "tire_rotation",
+     "metadata": json.dumps({"garage_name": "Ali Auto Workshop"})},
     # Generic maintenance #1 (baseline)
     {"date": "2026-03-10", "amount_pkr": 3500,  "odometer_km": 45800,
      "description": "Tire rotation and wheel balancing",
-     "vendor_name": "Tyre Shop Faisalabad",    "record_type": "maintenance"},
+     "vendor_name": "Tyre Shop Faisalabad",    "record_type": "maintenance",
+     "metadata": json.dumps({"garage_name": "Ali Auto Workshop"})},
     # Generic maintenance #2 (baseline)
     {"date": "2026-04-20", "amount_pkr": 4500,  "odometer_km": 47200,
      "description": "Brake pad inspection and adjustment",
-     "vendor_name": "AutoCare Multan",         "record_type": "maintenance"},
+     "vendor_name": "AutoCare Multan",         "record_type": "maintenance",
+     "metadata": json.dumps({"garage_name": "AutoCare Service Center"})},
     # Generic maintenance #3 (baseline)
     {"date": "2026-05-25", "amount_pkr": 5500,  "odometer_km": 48500,
      "description": "Air filter and coolant flush",
-     "vendor_name": "Quick Fix Islamabad",     "record_type": "maintenance"},
+     "vendor_name": "Quick Fix Islamabad",     "record_type": "maintenance",
+     "metadata": json.dumps({"garage_name": "Quick Fix Workshop"})},
     # Generic maintenance #4 (baseline)
     {"date": "2026-06-20", "amount_pkr": 2500,  "odometer_km": 49800,
      "description": "Wiper blade and battery check",
-     "vendor_name": "AutoPro Karachi",         "record_type": "maintenance"},
+     "vendor_name": "AutoPro Karachi",         "record_type": "maintenance",
+     "metadata": json.dumps({"garage_name": "AutoPro Garage"})},
     # ANOMALY: 22 000 / avg(3 500,4 500,5 500,2 500 = 4 000) = 5.5x  → HIGH
     {"date": "2026-07-10", "amount_pkr": 22000, "odometer_km": 50500,
      "description": "Full engine tune-up and diagnostics",
-     "vendor_name": "Toyota Downtown Lahore",  "record_type": "maintenance"},
+     "vendor_name": "Toyota Downtown Lahore",  "record_type": "maintenance",
+     "metadata": json.dumps({"garage_name": "Ali Auto Workshop"})},
 ]
 
 # Insurance record (1 entry).
@@ -145,6 +166,7 @@ _INSURANCE_RECORD: dict[str, Any] = {
     "amount_pkr": 45000,
     "description": "Annual comprehensive vehicle insurance",
     "vendor_name": "EFU General Insurance",
+    "metadata": json.dumps({"policy_number": "POL-2026-4521", "provider": "State Life Insurance"}),
 }
 
 
@@ -198,7 +220,14 @@ def seed_demo_data() -> int:
     db.init_db()
 
     # Create the vehicle.
-    vehicle_id: int = db.add_vehicle(_DEMO_VEHICLE_NAME, _DEMO_REGISTRATION)
+    vehicle_id: int = db.add_vehicle(
+        name=_DEMO_VEHICLE_NAME,
+        registration_number=_DEMO_REGISTRATION,
+        make="Toyota",
+        model="Corolla",
+        year=2022,
+        initial_mileage=42000,
+    )
 
     created: int = 0
 
@@ -214,6 +243,7 @@ def seed_demo_data() -> int:
             description=r["description"],
             vendor_name=r["vendor_name"],
             source="demo",
+            metadata=r.get("metadata"),
         )
         created += 1
 
@@ -228,6 +258,7 @@ def seed_demo_data() -> int:
             description=r["description"],
             vendor_name=r["vendor_name"],
             source="demo",
+            metadata=r.get("metadata"),
         )
         created += 1
 
@@ -241,6 +272,7 @@ def seed_demo_data() -> int:
         description=r["description"],
         vendor_name=r["vendor_name"],
         source="demo",
+        metadata=r.get("metadata"),
     )
     created += 1
 

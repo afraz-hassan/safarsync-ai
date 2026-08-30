@@ -96,30 +96,30 @@ def _validate_output_path(output_path: str) -> str:
 
 
 def _fmt_amount(value: Any) -> str:
-    """Format a monetary value as ``"12,345"`` or ``"—"``."""
+    """Format a monetary value as ``"12,345"`` or ``"-"``."""
     if value is None:
-        return "\u2014"  # em dash
+        return "-"
     try:
         return f"{float(value):,.0f}"
     except (ValueError, TypeError):
-        return "\u2014"
+        return "-"
 
 
 def _fmt_int(value: Any) -> str:
-    """Format an integer value or ``"—"``."""
+    """Format an integer value or ``"-"``."""
     if value is None:
-        return "\u2014"
+        return "-"
     try:
         return f"{int(value):,}"
     except (ValueError, TypeError):
-        return "\u2014"
+        return "-"
 
 
 def _safe_str(value: Any, limit: int = 0) -> str:
     """Coerce to string, truncate if *limit* > 0."""
     text: str = str(value) if value is not None else ""
     if limit and len(text) > limit:
-        text = text[: limit - 1] + "\u2026"  # ellipsis
+        text = text[: limit - 1] + "."  # truncated
     return text
 
 
@@ -190,6 +190,44 @@ def generate_logbook_pdf(vehicle_id: int, output_path: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Public API — in-memory bytes variant
+# ---------------------------------------------------------------------------
+def generate_logbook_pdf_bytes(vehicle_id: int) -> bytes:
+    """Generate a PDF logbook and return it as bytes (no temp file).
+
+    Produces the same document as :func:`generate_logbook_pdf` but returns
+    the raw PDF bytes instead of writing to disk.  Suitable for use with
+    ``st.download_button`` or any HTTP response.
+
+    Parameters
+    ----------
+    vehicle_id : int
+        The vehicle whose logbook to generate.
+
+    Returns
+    -------
+    bytes
+        The complete PDF document as a byte string.
+
+    Raises
+    ------
+    ValueError
+        If the vehicle does not exist.
+    RuntimeError
+        For any unexpected generation failure.
+    """
+    try:
+        return _generate_bytes(vehicle_id)
+    except ValueError:
+        raise  # propagate expected validation errors unchanged
+    except Exception as exc:
+        logger.exception("PDF bytes generation failed for vehicle %s", vehicle_id)
+        raise RuntimeError(
+            f"Failed to generate PDF: {exc}"
+        ) from exc
+
+
+# ---------------------------------------------------------------------------
 # Generation engine (private)
 # ---------------------------------------------------------------------------
 def _generate(vehicle_id: int, output_path: str) -> str:
@@ -206,7 +244,7 @@ def _generate(vehicle_id: int, output_path: str) -> str:
 
     dates: list[str] = [r["date"] for r in records if r.get("date")]
     date_range: str = (
-        f"{min(dates)}  \u2192  {max(dates)}" if dates else "N/A"
+        f"{min(dates)}  ->  {max(dates)}" if dates else "N/A"
     )
     gen_date: str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
@@ -234,6 +272,43 @@ def _generate(vehicle_id: int, output_path: str) -> str:
         ) from exc
 
     return output_path
+
+
+def _generate_bytes(vehicle_id: int) -> bytes:
+    """Build the logbook PDF in memory and return raw bytes."""
+    # ── Validate inputs ───────────────────────────────────────────────
+    vehicle: dict[str, Any] = _find_vehicle(vehicle_id)
+
+    # ── Fetch records (newest-first from DB) ──────────────────────────
+    records: list[dict[str, Any]] = db.get_records(vehicle_id)
+
+    # ── Compute summary ───────────────────────────────────────────────
+    record_count: int = len(records)
+    total_spend: float = sum(r.get("amount_pkr") or 0.0 for r in records)
+
+    dates: list[str] = [r["date"] for r in records if r.get("date")]
+    date_range: str = (
+        f"{min(dates)}  ->  {max(dates)}" if dates else "N/A"
+    )
+    gen_date: str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    # ── Build the PDF ─────────────────────────────────────────────────
+    pdf = _LogbookPDF()
+    pdf.alias_nb_pages()
+    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.set_margins(_PAGE_MARGIN, _PAGE_MARGIN, _PAGE_MARGIN)
+    pdf.add_page()
+
+    _draw_header(pdf, vehicle, gen_date)
+    _draw_summary(pdf, total_spend, record_count, date_range)
+
+    if record_count == 0:
+        _draw_empty_notice(pdf)
+    else:
+        _draw_table(pdf, records)
+
+    # ── Return bytes (fpdf2 returns bytes when no path is given) ──────
+    return pdf.output()
 
 
 # ---------------------------------------------------------------------------

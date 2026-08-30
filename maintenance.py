@@ -16,6 +16,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import streamlit as st
+
 import database as db
 import analytics
 import config
@@ -25,6 +27,17 @@ from ai_client import ask_text
 # Module-level logger
 # ---------------------------------------------------------------------------
 logger = logging.getLogger(__name__)
+
+
+def _safe_cache(**kwargs):
+    """Return st.cache_data decorator only when Streamlit runtime is active."""
+    try:
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+        if get_script_run_ctx() is not None:
+            return st.cache_data(**kwargs)
+    except Exception:
+        pass
+    return lambda fn: fn
 
 # ---------------------------------------------------------------------------
 # Maintenance schedule — kilometres between services.
@@ -81,7 +94,8 @@ def _latest_service_odometer(vehicle_id: int, service_type: str) -> int | None:
 # ---------------------------------------------------------------------------
 # Public: check due maintenance
 # ---------------------------------------------------------------------------
-def check_due_maintenance(vehicle_id: int) -> list[dict[str, Any]]:
+@_safe_cache(ttl=300, show_spinner=False)
+def check_due_maintenance(vehicle_id: int, db_version: int = 0) -> list[dict[str, Any]]:
     """
     Evaluate every scheduled service for a vehicle and return its status.
 

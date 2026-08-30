@@ -21,9 +21,22 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import streamlit as st
+
 import database as db
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_cache(**kwargs):
+    """Return st.cache_data decorator only when Streamlit runtime is active."""
+    try:
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+        if get_script_run_ctx() is not None:
+            return st.cache_data(**kwargs)
+    except Exception:
+        pass
+    return lambda fn: fn
 
 # ---------------------------------------------------------------------------
 # Tuning constants
@@ -91,7 +104,8 @@ def _make_anomaly(
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
-def find_anomalies(vehicle_id: int) -> list[dict[str, Any]]:
+@_safe_cache(ttl=300, show_spinner=False)
+def find_anomalies(vehicle_id: int, db_version: int = 0) -> list[dict[str, Any]]:
     """Detect anomalies in a vehicle's expense and maintenance records.
 
     The function scans **all** fuel and maintenance records for the given
